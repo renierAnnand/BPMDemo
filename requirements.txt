@@ -1,0 +1,48 @@
+# Core Streamlit and Data Processing
+streamlit>=1.28.0
+pandas>=2.0.0
+numpy>=1.24.0
+
+# Visualization and Charts
+plotly>=5.15.0
+
+# Date and Time Handling
+python-dateutil>=2.8.2
+
+# Optional: Additional utilities for enhanced functionality
+# Uncomment if you want to add these features:
+
+# For advanced data manipulation
+# scipy>=1.10.0
+
+# For machine learning predictions (if adding ML features)
+# scikit-learn>=1.3.0
+
+# For better data validation
+# pydantic>=2.0.0
+
+# For API integrations (if connecting to real systems)
+# requests>=2.31.0
+# httpx>=0.24.0
+
+# For database connectivity (if persisting data)
+# sqlalchemy>=2.0.0
+# sqlite3  # Built-in with Python
+
+# For enhanced styling
+# streamlit-option-menu>=0.3.6
+# streamlit-aggrid>=0.3.4
+
+# For file handling and exports
+# openpyxl>=3.1.0
+# xlsxwriter>=3.1.0
+
+# For email notifications (if implementing real alerts)
+# smtplib  # Built-in with Python
+# email-validator>=2.0.0
+
+# For configuration management
+# python-dotenv>=1.0.0
+
+# For logging and monitoring
+# loguru>=0.7.0
