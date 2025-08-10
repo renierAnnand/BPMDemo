@@ -185,6 +185,57 @@ st.markdown("""
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
+    
+    /* Checklist styling */
+    .checklist-item {
+        padding: 8px;
+        margin: 4px 0;
+        border-left: 3px solid #e2e8f0;
+        background-color: #f8f9fa;
+        border-radius: 4px;
+    }
+    
+    .checklist-item.required {
+        border-left-color: #dc3545;
+    }
+    
+    .checklist-item.optional {
+        border-left-color: #17a2b8;
+    }
+    
+    .checklist-item.completed {
+        background-color: #d4edda;
+        border-left-color: #28a745;
+    }
+    
+    .checklist-progress {
+        background-color: #f8f9fa;
+        border-radius: 10px;
+        padding: 10px;
+        margin: 10px 0;
+    }
+    
+    .step-completion-disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+    
+    /* Template builder styling */
+    .template-step {
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        padding: 15px;
+        margin: 10px 0;
+        background-color: #f8f9fa;
+    }
+    
+    .checklist-builder {
+        background-color: white;
+        border: 1px solid #e9ecef;
+        border-radius: 6px;
+        padding: 10px;
+        margin: 5px 0;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -204,8 +255,12 @@ if 'show_details' not in st.session_state:
     st.session_state.show_details = {}
 if 'task_actions' not in st.session_state:
     st.session_state.task_actions = {}
+if 'process_templates' not in st.session_state:
+    st.session_state.process_templates = {}
+if 'checklist_progress' not in st.session_state:
+    st.session_state.checklist_progress = {}
 
-# Sample data initialization with detailed task information
+# Sample data initialization with detailed task information and checklists
 if not st.session_state.processes:
     sample_processes = [
         {
@@ -225,7 +280,19 @@ if not st.session_state.processes:
             'priority': 'High',
             'description': 'Implement comprehensive customer portal enhancement with new dashboard features and improved user experience.',
             'created_by': 'Marketing Manager',
-            'comments': 'Critical for Q3 customer satisfaction initiative.'
+            'comments': 'Critical for Q3 customer satisfaction initiative.',
+            'checklists': {
+                'PMO Review': [
+                    {'name': 'Business Requirements Document uploaded', 'description': 'Complete BRD with all sections filled', 'required': True, 'completed': True},
+                    {'name': 'Stakeholder list confirmed', 'description': 'All stakeholders identified and contacted', 'required': True, 'completed': True},
+                    {'name': 'Budget estimate provided', 'description': 'Initial budget estimate documented', 'required': True, 'completed': True}
+                ],
+                'Technical Team Review': [
+                    {'name': 'Feasibility analysis completed', 'description': 'Technical feasibility assessment done', 'required': True, 'completed': False},
+                    {'name': 'Time and effort estimation added', 'description': 'Development timeline estimated', 'required': True, 'completed': False},
+                    {'name': 'Resource allocation reviewed', 'description': 'Team resources confirmed available', 'required': True, 'completed': False}
+                ]
+            }
         },
         {
             'id': str(uuid.uuid4()),
@@ -244,7 +311,14 @@ if not st.session_state.processes:
             'priority': 'Medium',
             'description': 'Deploy enterprise-wide data analytics platform for business intelligence and reporting.',
             'created_by': 'IT Director',
-            'comments': 'Requires board approval due to budget size.'
+            'comments': 'Requires board approval due to budget size.',
+            'checklists': {
+                'Final Approval': [
+                    {'name': 'Budget approval from CFO', 'description': 'CFO sign-off on budget allocation', 'required': True, 'completed': False},
+                    {'name': 'Board resolution signed', 'description': 'Board approval documented', 'required': True, 'completed': False},
+                    {'name': 'Compliance review completed', 'description': 'Legal and compliance check done', 'required': False, 'completed': True}
+                ]
+            }
         },
         {
             'id': str(uuid.uuid4()),
@@ -263,7 +337,14 @@ if not st.session_state.processes:
             'priority': 'Medium',
             'description': 'Streamline new hire onboarding with automated workflows and document collection.',
             'created_by': 'HR Manager',
-            'comments': 'Part of digital transformation initiative.'
+            'comments': 'Part of digital transformation initiative.',
+            'checklists': {
+                'PMO Review': [
+                    {'name': 'HR requirements documented', 'description': 'All HR workflow requirements captured', 'required': True, 'completed': True},
+                    {'name': 'Integration points identified', 'description': 'HRIS and other system integrations mapped', 'required': True, 'completed': False},
+                    {'name': 'Compliance requirements reviewed', 'description': 'Legal compliance for employee data handling', 'required': True, 'completed': False}
+                ]
+            }
         },
         {
             'id': str(uuid.uuid4()),
@@ -282,10 +363,63 @@ if not st.session_state.processes:
             'priority': 'High',
             'description': 'Implement end-to-end procurement workflow automation with vendor integration.',
             'created_by': 'Procurement Manager',
-            'comments': 'Successfully deployed and operational.'
+            'comments': 'Successfully deployed and operational.',
+            'checklists': {}
         }
     ]
     st.session_state.processes.extend(sample_processes)
+
+# Initialize default process templates with checklists
+if not st.session_state.process_templates:
+    st.session_state.process_templates = {
+        'IT Project Request': {
+            'steps': [
+                {
+                    'name': 'PMO Review',
+                    'role': 'PMO',
+                    'sla_days': 3,
+                    'checklist': [
+                        {'name': 'Business Requirements Collection', 'description': 'Ensure business user provides detailed project description', 'required': True},
+                        {'name': 'Functional and Non-Functional Requirements', 'description': 'Clarify and document functional requirements', 'required': True},
+                        {'name': 'Stakeholder Identification', 'description': 'Confirm list of stakeholders and their roles', 'required': True},
+                        {'name': 'Timeline and Budget Estimates', 'description': 'Verify timeline and budget estimates provided', 'required': True},
+                        {'name': 'Risks and Constraints', 'description': 'Identify any risks that could impact the project', 'required': False}
+                    ]
+                },
+                {
+                    'name': 'Technical Team Review',
+                    'role': 'Technical Lead',
+                    'sla_days': 5,
+                    'checklist': [
+                        {'name': 'Feasibility Analysis', 'description': 'Assess technical feasibility of the project', 'required': True},
+                        {'name': 'Resource Estimation', 'description': 'Estimate development time and team resources', 'required': True},
+                        {'name': 'Architecture Review', 'description': 'Review technical architecture and approach', 'required': True},
+                        {'name': 'Integration Assessment', 'description': 'Assess integration requirements with existing systems', 'required': False}
+                    ]
+                },
+                {
+                    'name': 'PMO Validation',
+                    'role': 'PMO',
+                    'sla_days': 2,
+                    'checklist': [
+                        {'name': 'Business-Technical Alignment', 'description': 'Ensure technical solution aligns with business requirements', 'required': True},
+                        {'name': 'Timeline Validation', 'description': 'Validate realistic timeline based on technical assessment', 'required': True},
+                        {'name': 'Budget Reconciliation', 'description': 'Reconcile final budget with technical estimates', 'required': True}
+                    ]
+                },
+                {
+                    'name': 'Final Approval',
+                    'role': 'Manager',
+                    'sla_days': 3,
+                    'checklist': [
+                        {'name': 'Executive Review', 'description': 'Present project proposal to executive team', 'required': True},
+                        {'name': 'Budget Approval', 'description': 'Obtain budget approval from finance', 'required': True},
+                        {'name': 'Resource Commitment', 'description': 'Confirm resource allocation and availability', 'required': True}
+                    ]
+                }
+            ]
+        }
+    }
 
 # Helper functions
 def get_sla_status(due_date):
@@ -306,12 +440,28 @@ def get_process_steps():
         "Final Approval"
     ]
 
-def create_new_process(title, business_req, timeline, budget, priority):
+def create_new_process(title, business_req, timeline, budget, priority, process_type='IT Project Request'):
     process_id = str(uuid.uuid4())
+    
+    # Get checklist template if available
+    checklists = {}
+    if process_type in st.session_state.process_templates:
+        template = st.session_state.process_templates[process_type]
+        for step in template['steps']:
+            step_name = step['name']
+            checklists[step_name] = []
+            for item in step.get('checklist', []):
+                checklists[step_name].append({
+                    'name': item['name'],
+                    'description': item.get('description', ''),
+                    'required': item.get('required', True),
+                    'completed': False
+                })
+    
     new_process = {
         'id': process_id,
         'title': title,
-        'type': 'IT Project Request',
+        'type': process_type,
         'submitter': st.session_state.current_user,
         'created_date': datetime.now(),
         'current_step': 'PMO Review',
@@ -325,7 +475,8 @@ def create_new_process(title, business_req, timeline, budget, priority):
         'priority': priority,
         'description': business_req,
         'created_by': st.session_state.users[st.session_state.current_user]['name'],
-        'comments': 'Newly submitted request awaiting review.'
+        'comments': 'Newly submitted request awaiting review.',
+        'checklists': checklists
     }
     st.session_state.processes.append(new_process)
     return process_id
@@ -493,6 +644,155 @@ if page == "📝 Work Management System":
                 with st.expander(f"⚡ Take Action on Task - {process['title']}", expanded=True):
                     st.write(f"**Task:** {process['title']}")
                     st.write(f"**Current Status:** {process['status']}")
+                    
+                    # Display checklist for current step if available
+                    current_step = process['current_step']
+                    if 'checklists' in process and current_step in process['checklists']:
+                        st.write(f"**{current_step} Checklist:**")
+                        
+                        checklist_items = process['checklists'][current_step]
+                        all_required_completed = True
+                        
+                        for i, item in enumerate(checklist_items):
+                            item_key = f"checklist_{process['id']}_{current_step}_{i}"
+                            
+                            # Display checklist item
+                            col_check, col_details = st.columns([1, 4])
+                            
+                            with col_check:
+                                item_completed = st.checkbox(
+                                    "",
+                                    value=item.get('completed', False),
+                                    key=item_key,
+                                    help=f"{'Required' if item['required'] else 'Optional'}"
+                                )
+                                # Update completion status
+                                item['completed'] = item_completed
+                            
+                            with col_details:
+                                required_indicator = "🔴" if item['required'] else "🔵"
+                                st.write(f"{required_indicator} **{item['name']}**")
+                                if item.get('description'):
+                                    st.caption(item['description'])
+                            
+                            # Check if required items are completed
+                            if item['required'] and not item_completed:
+                                all_required_completed = False
+                        
+                        # Completion status indicator
+                        if all_required_completed:
+                            st.success("✅ All required checklist items completed!")
+                        else:
+                            st.warning("⚠️ Complete all required checklist items to proceed")
+                    
+                    # Legacy action handling for processes without checklists
+                    if process['current_step'] == 'PMO Review' and current_user_info['role'] == 'PMO':
+                        if 'checklists' not in process or 'PMO Review' not in process['checklists']:
+                            # Legacy checklist for backward compatibility
+                            st.write("**PMO Review Checklist:**")
+                            req_collected = st.checkbox("✓ Business Requirements Collection", key=f"req_{process['id']}")
+                            func_req = st.checkbox("✓ Functional and Non-Functional Requirements", key=f"func_{process['id']}")
+                            stakeholders = st.checkbox("✓ Stakeholder Identification", key=f"stake_{process['id']}")
+                            timeline_check = st.checkbox("✓ Timeline and Budget Estimates", key=f"time_{process['id']}")
+                            risks = st.checkbox("✓ Risks and Constraints", key=f"risk_{process['id']}")
+                            all_required_completed = all([req_collected, func_req, stakeholders, timeline_check, risks])
+                        
+                        # Complete step button
+                        step_complete_disabled = not all_required_completed if ('checklists' in process and 'PMO Review' in process['checklists']) else not all([req_collected, func_req, stakeholders, timeline_check, risks]) if 'checklists' not in process or 'PMO Review' not in process['checklists'] else False
+                        
+                        if st.button(f"Complete PMO Review", key=f"complete_pmo_{process['id']}", disabled=step_complete_disabled):
+                            process['current_step'] = 'Technical Team Review'
+                            process['assigned_to'] = 'mike_tech'
+                            process['steps_completed'].append('PMO Review')
+                            process['sla_due'] = datetime.now() + timedelta(days=5)
+                            st.success("PMO Review completed! Task moved to Technical Team.")
+                            st.rerun()
+                    
+                    elif process['current_step'] == 'Technical Team Review' and current_user_info['role'] == 'Technical Lead':
+                        if 'checklists' not in process or 'Technical Team Review' not in process['checklists']:
+                            st.write("**Technical Review:**")
+                            feasibility = st.selectbox("Project Feasibility", 
+                                                     ["Select", "Feasible", "Needs Modification", "Not Feasible"],
+                                                     key=f"feas_{process['id']}")
+                            effort = st.text_input("Estimated Effort (hours)", key=f"effort_{process['id']}")
+                            all_required_completed = feasibility != "Select" and effort
+                        
+                        step_complete_disabled = not all_required_completed
+                        
+                        if st.button(f"Complete Technical Review", key=f"complete_tech_{process['id']}", disabled=step_complete_disabled):
+                            process['current_step'] = 'PMO Validation'
+                            process['assigned_to'] = 'sarah_pmo'
+                            process['steps_completed'].append('Technical Team Review')
+                            process['sla_due'] = datetime.now() + timedelta(days=2)
+                            st.success("Technical Review completed! Task moved back to PMO for validation.")
+                            st.rerun()
+                    
+                    elif process['current_step'] == 'PMO Validation' and current_user_info['role'] == 'PMO':
+                        if 'checklists' not in process or 'PMO Validation' not in process['checklists']:
+                            st.write("**PMO Validation:**")
+                            alignment = st.selectbox("Business-Technical Alignment", 
+                                                    ["Select", "Aligned", "Minor Adjustments Needed", "Major Revisions Required"],
+                                                    key=f"align_{process['id']}")
+                            all_required_completed = alignment != "Select"
+                        
+                        step_complete_disabled = not all_required_completed
+                        
+                        if st.button(f"Complete PMO Validation", key=f"complete_val_{process['id']}", disabled=step_complete_disabled):
+                            process['current_step'] = 'Final Approval'
+                            process['assigned_to'] = 'lisa_manager'
+                            process['steps_completed'].append('PMO Validation')
+                            process['sla_due'] = datetime.now() + timedelta(days=3)
+                            st.success("PMO Validation completed! Task moved to Final Approval.")
+                            st.rerun()
+                    
+                    elif process['current_step'] == 'Final Approval' and current_user_info['role'] == 'Manager':
+                        if 'checklists' not in process or 'Final Approval' not in process['checklists']:
+                            st.write("**Final Approval:**")
+                            decision = st.selectbox("Approval Decision", 
+                                                   ["Select", "Approved", "Approved with Conditions", "Rejected"],
+                                                   key=f"decision_{process['id']}")
+                            all_required_completed = decision != "Select"
+                        
+                        step_complete_disabled = not all_required_completed
+                        
+                        if st.button(f"Make Final Decision", key=f"complete_final_{process['id']}", disabled=step_complete_disabled):
+                            process['steps_completed'].append('Final Approval')
+                            process['status'] = 'Completed' if 'checklists' not in process or decision == 'Approved' else 'Rejected'
+                            process['current_step'] = 'Completed'
+                            st.success(f"Process completed!")
+                            st.rerun()
+                    
+                    # Generic completion button for steps with checklists
+                    elif 'checklists' in process and current_step in process['checklists']:
+                        step_complete_disabled = not all_required_completed
+                        
+                        if st.button(f"Complete {current_step}", key=f"complete_step_{process['id']}", disabled=step_complete_disabled):
+                            # Move to next step logic here
+                            steps = get_process_steps()
+                            current_index = steps.index(current_step) if current_step in steps else -1
+                            
+                            if current_index < len(steps) - 1:
+                                next_step = steps[current_index + 1]
+                                process['current_step'] = next_step
+                                process['steps_completed'].append(current_step)
+                                
+                                # Assign to appropriate user based on step
+                                if 'Technical' in next_step:
+                                    process['assigned_to'] = 'mike_tech'
+                                elif 'PMO' in next_step:
+                                    process['assigned_to'] = 'sarah_pmo'
+                                elif 'Final' in next_step or 'Manager' in next_step:
+                                    process['assigned_to'] = 'lisa_manager'
+                                
+                                process['sla_due'] = datetime.now() + timedelta(days=3)
+                                st.success(f"{current_step} completed! Task moved to {next_step}.")
+                            else:
+                                process['steps_completed'].append(current_step)
+                                process['status'] = 'Completed'
+                                process['current_step'] = 'Completed'
+                                st.success("Process completed successfully!")
+                            
+                            st.rerun()
                     
                     col1, col2 = st.columns(2)
                     
@@ -909,15 +1209,19 @@ elif page == "📊 Management Dashboard":
     st.plotly_chart(fig_bottleneck, use_container_width=True)
 
 elif page == "➕ New Process Request":
-    st.header("New IT Project Request")
+    st.header("New Process Request")
     
     with st.form("new_process_form"):
-        st.subheader("Project Details")
+        st.subheader("Request Details")
         
         col1, col2 = st.columns(2)
         
         with col1:
-            title = st.text_input("Project Title*", placeholder="Enter project title")
+            # Process type selection
+            available_types = ['IT Project Request'] + list(st.session_state.process_templates.keys())
+            process_type = st.selectbox("Process Type*", available_types)
+            
+            title = st.text_input("Request Title*", placeholder="Enter request title")
             business_req = st.text_area("Business Requirements*", 
                                       placeholder="Describe the business requirements and objectives")
             timeline = st.selectbox("Estimated Timeline", 
@@ -932,6 +1236,22 @@ elif page == "➕ New Process Request":
             success_criteria = st.text_area("Define success criteria", 
                                           placeholder="How will you measure project success?")
         
+        # Show template preview if selected
+        if process_type in st.session_state.process_templates:
+            st.subheader(f"📋 {process_type} Process Preview")
+            template = st.session_state.process_templates[process_type]
+            
+            st.write("**This request will follow these steps:**")
+            for i, step in enumerate(template['steps'], 1):
+                step_name = step.get('name', f"Step {i}")
+                step_role = step.get('role', 'N/A')
+                step_sla = step.get('sla_days', step.get('sla', 3))
+                checklist_count = len(step.get('checklist', []))
+                
+                st.write(f"{i}. **{step_name}** (Assigned to: {step_role}, SLA: {step_sla} days)")
+                if checklist_count > 0:
+                    st.write(f"   📋 {checklist_count} checklist items to complete")
+        
         st.subheader("Additional Information")
         stakeholders = st.text_input("Key Stakeholders", 
                                    placeholder="List primary stakeholders and their roles")
@@ -942,16 +1262,25 @@ elif page == "➕ New Process Request":
         
         if submitted:
             if title and business_req:
-                process_id = create_new_process(title, business_req, timeline, budget, priority)
-                st.success(f"✅ Process request submitted successfully! Process ID: {process_id[:8]}")
-                st.info("Your request has been assigned to the PMO team for initial review.")
+                process_id = create_new_process(title, business_req, timeline, budget, priority, process_type)
+                st.success(f"✅ {process_type} request submitted successfully! Process ID: {process_id[:8]}")
+                st.info("Your request has been assigned to the appropriate team for initial review.")
                 
-                # Show next steps
-                st.subheader("What happens next?")
-                st.write("1. **PMO Review** - The PMO team will review your submission and validate requirements")
-                st.write("2. **Technical Assessment** - Technical team will evaluate feasibility and provide estimates")
-                st.write("3. **PMO Validation** - PMO will ensure alignment between business and technical requirements")
-                st.write("4. **Final Approval** - Management will make the final decision")
+                # Show next steps based on template
+                if process_type in st.session_state.process_templates:
+                    template = st.session_state.process_templates[process_type]
+                    st.subheader("What happens next?")
+                    for i, step in enumerate(template['steps'], 1):
+                        step_name = step.get('name', f"Step {i}")
+                        step_role = step.get('role', 'N/A')
+                        st.write(f"{i}. **{step_name}** - The {step_role} team will review your submission")
+                else:
+                    # Default next steps
+                    st.subheader("What happens next?")
+                    st.write("1. **PMO Review** - The PMO team will review your submission and validate requirements")
+                    st.write("2. **Technical Assessment** - Technical team will evaluate feasibility and provide estimates")
+                    st.write("3. **PMO Validation** - PMO will ensure alignment between business and technical requirements")
+                    st.write("4. **Final Approval** - Management will make the final decision")
                 
                 st.write("You can track the progress of your request in the Work Management System.")
             else:
@@ -965,22 +1294,70 @@ elif page == "🔧 Process Templates":
     with tab1:
         st.subheader("Available Process Templates")
         
-        templates = [
-            {"name": "IT Project Request", "steps": 5, "avg_duration": "12 days", "usage": 45, "status": "Active"},
-            {"name": "Procurement Request", "steps": 6, "avg_duration": "8 days", "usage": 23, "status": "Active"},
-            {"name": "HR Onboarding", "steps": 4, "avg_duration": "5 days", "usage": 12, "status": "Draft"},
-            {"name": "Budget Approval", "steps": 3, "avg_duration": "3 days", "usage": 67, "status": "Active"}
+        # Display process templates from session state
+        if st.session_state.process_templates:
+            for template_name, template_data in st.session_state.process_templates.items():
+                with st.expander(f"📄 {template_name} (Active)"):
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        st.metric("Steps", len(template_data['steps']))
+                    with col2:
+                        total_checklist_items = sum(len(step.get('checklist', [])) for step in template_data['steps'])
+                        st.metric("Total Checklist Items", total_checklist_items)
+                    with col3:
+                        avg_sla = sum(step.get('sla_days', step.get('sla', 3)) for step in template_data['steps']) / len(template_data['steps'])
+                        st.metric("Avg SLA (days)", f"{avg_sla:.1f}")
+                    
+                    # Show template description
+                    if template_data.get('description'):
+                        st.write(f"**Description:** {template_data['description']}")
+                    
+                    # Show steps with checklists
+                    st.write("**Process Flow:**")
+                    for i, step in enumerate(template_data['steps'], 1):
+                        step_name = step.get('name', f"Step {i}")
+                        step_role = step.get('role', 'N/A')
+                        step_sla = step.get('sla_days', step.get('sla', 3))
+                        
+                        st.write(f"**{i}. {step_name}** (Assigned to: {step_role}, SLA: {step_sla} days)")
+                        
+                        # Show checklist items
+                        checklist = step.get('checklist', [])
+                        if checklist:
+                            st.write("   **Checklist Items:**")
+                            for item in checklist:
+                                required_icon = "🔴" if item.get('required', True) else "🔵"
+                                st.write(f"   {required_icon} {item['name']}")
+                                if item.get('description'):
+                                    st.write(f"      _{item['description']}_")
+                        else:
+                            st.write("   _No checklist items defined_")
+                    
+                    action_cols = st.columns(2)
+                    with action_cols[0]:
+                        if st.button(f"Edit {template_name}", key=f"edit_{template_name}"):
+                            st.info("Template editing interface would open here")
+                    with action_cols[1]:
+                        if st.button(f"Duplicate {template_name}", key=f"duplicate_{template_name}"):
+                            st.info("Template duplication feature would create a copy")
+        
+        # Display default/legacy templates
+        legacy_templates = [
+            {"name": "HR Onboarding", "steps": 4, "avg_duration": "5 days", "usage": 12, "status": "Draft", "checklist_items": 8},
+            {"name": "Budget Approval", "steps": 3, "avg_duration": "3 days", "usage": 67, "status": "Active", "checklist_items": 5}
         ]
         
-        for template in templates:
+        for template in legacy_templates:
             with st.expander(f"📄 {template['name']} ({template['status']})"):
-                col1, col2, col3 = st.columns(3)
+                col1, col2, col3, col4 = st.columns(4)
                 with col1:
                     st.metric("Steps", template['steps'])
                 with col2:
                     st.metric("Avg Duration", template['avg_duration'])
                 with col3:
                     st.metric("Monthly Usage", template['usage'])
+                with col4:
+                    st.metric("Checklist Items", template['checklist_items'])
                 
                 if st.button(f"Edit {template['name']}", key=f"edit_{template['name']}"):
                     st.info("Template editing interface would open here")
@@ -995,8 +1372,15 @@ elif page == "🔧 Process Templates":
             st.write("**Define Process Steps:**")
             num_steps = st.number_input("Number of Steps", min_value=1, max_value=10, value=3)
             
+            # Initialize steps in session state for dynamic management
+            if f"template_steps_{template_name}" not in st.session_state:
+                st.session_state[f"template_steps_{template_name}"] = []
+            
             steps = []
             for i in range(num_steps):
+                st.write(f"---")
+                st.write(f"**Step {i+1}**")
+                
                 col1, col2, col3 = st.columns(3)
                 with col1:
                     step_name = st.text_input(f"Step {i+1} Name", key=f"step_name_{i}")
@@ -1006,23 +1390,119 @@ elif page == "🔧 Process Templates":
                     step_sla = st.number_input(f"SLA (days)", min_value=1, max_value=30, value=3, key=f"step_sla_{i}")
                 
                 if step_name:
-                    steps.append({"name": step_name, "role": step_role, "sla": step_sla})
+                    step_data = {"name": step_name, "role": step_role, "sla": step_sla, "checklist": []}
+                    
+                    # Checklist Items Section
+                    st.write(f"**📋 Checklist Items for {step_name}**")
+                    
+                    # Initialize checklist in session state
+                    checklist_key = f"checklist_{template_name}_{i}"
+                    if checklist_key not in st.session_state:
+                        st.session_state[checklist_key] = []
+                    
+                    # Display existing checklist items
+                    for j, item in enumerate(st.session_state[checklist_key]):
+                        item_container = st.container()
+                        with item_container:
+                            item_cols = st.columns([3, 2, 1, 1, 1])
+                            
+                            with item_cols[0]:
+                                item['name'] = st.text_input(f"Item Name", value=item.get('name', ''), key=f"item_name_{i}_{j}")
+                            
+                            with item_cols[1]:
+                                item['description'] = st.text_input(f"Description", value=item.get('description', ''), key=f"item_desc_{i}_{j}")
+                            
+                            with item_cols[2]:
+                                item['required'] = st.checkbox("Required", value=item.get('required', True), key=f"item_req_{i}_{j}")
+                            
+                            with item_cols[3]:
+                                if st.button("↑", key=f"move_up_{i}_{j}", help="Move Up", disabled=(j == 0)):
+                                    if j > 0:
+                                        st.session_state[checklist_key][j], st.session_state[checklist_key][j-1] = st.session_state[checklist_key][j-1], st.session_state[checklist_key][j]
+                                        st.rerun()
+                                
+                                if st.button("↓", key=f"move_down_{i}_{j}", help="Move Down", disabled=(j == len(st.session_state[checklist_key]) - 1)):
+                                    if j < len(st.session_state[checklist_key]) - 1:
+                                        st.session_state[checklist_key][j], st.session_state[checklist_key][j+1] = st.session_state[checklist_key][j+1], st.session_state[checklist_key][j]
+                                        st.rerun()
+                            
+                            with item_cols[4]:
+                                if st.button("🗑️", key=f"delete_item_{i}_{j}", help="Delete Item"):
+                                    st.session_state[checklist_key].pop(j)
+                                    st.rerun()
+                    
+                    # Add new checklist item section
+                    with st.expander(f"➕ Add Checklist Item to {step_name}", expanded=False):
+                        new_item_cols = st.columns([3, 2, 1, 1])
+                        
+                        with new_item_cols[0]:
+                            new_item_name = st.text_input("New Item Name", key=f"new_item_name_{i}")
+                        
+                        with new_item_cols[1]:
+                            new_item_desc = st.text_input("Description (Optional)", key=f"new_item_desc_{i}")
+                        
+                        with new_item_cols[2]:
+                            new_item_required = st.checkbox("Required", value=True, key=f"new_item_req_{i}")
+                        
+                        with new_item_cols[3]:
+                            if st.button("Add Item", key=f"add_item_{i}"):
+                                if new_item_name:
+                                    new_item = {
+                                        'name': new_item_name,
+                                        'description': new_item_desc,
+                                        'required': new_item_required
+                                    }
+                                    st.session_state[checklist_key].append(new_item)
+                                    st.rerun()
+                                else:
+                                    st.error("Item name is required")
+                    
+                    # Add checklist to step data
+                    step_data["checklist"] = st.session_state[checklist_key].copy()
+                    steps.append(step_data)
             
             if st.form_submit_button("Create Template"):
                 if template_name and len(steps) > 0:
-                    st.success(f"Template '{template_name}' created successfully!")
+                    # Save template to session state
+                    st.session_state.process_templates[template_name] = {
+                        'description': template_desc,
+                        'steps': steps
+                    }
+                    
+                    # Clear temporary session state
+                    for i in range(num_steps):
+                        checklist_key = f"checklist_{template_name}_{i}"
+                        if checklist_key in st.session_state:
+                            del st.session_state[checklist_key]
+                    
+                    st.success(f"✅ Template '{template_name}' created successfully with {len(steps)} steps!")
+                    
+                    # Show summary
+                    st.subheader("Template Summary")
+                    for step in steps:
+                        st.write(f"**{step['name']}** ({step['role']}) - {step['sla']} days SLA")
+                        if step['checklist']:
+                            for item in step['checklist']:
+                                required_icon = "🔴" if item['required'] else "🔵"
+                                st.write(f"  {required_icon} {item['name']}")
+                                if item['description']:
+                                    st.write(f"    _{item['description']}_")
+                        else:
+                            st.write("  _No checklist items defined_")
                 else:
                     st.error("Please provide template name and at least one step")
     
     with tab3:
         st.subheader("Template Performance Analytics")
         
-        # Template usage chart
+        # Template usage chart with checklist data
         template_data = pd.DataFrame({
             'Template': ['IT Project', 'Procurement', 'HR Onboarding', 'Budget Approval'],
             'Usage': [45, 23, 12, 67],
             'Avg Completion Time': [12, 8, 5, 3],
-            'Success Rate': [85, 92, 98, 78]
+            'Success Rate': [85, 92, 98, 78],
+            'Checklist Items': [12, 8, 8, 5],
+            'Checklist Compliance': [94, 87, 99, 95]
         })
         
         col1, col2 = st.columns(2)
@@ -1033,6 +1513,41 @@ elif page == "🔧 Process Templates":
         with col2:
             fig_success = px.bar(template_data, x='Template', y='Success Rate', title="Template Success Rate (%)")
             st.plotly_chart(fig_success, use_container_width=True)
+        
+        # Checklist Analytics
+        st.subheader("📋 Checklist Analytics")
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            fig_checklist = px.bar(template_data, x='Template', y='Checklist Items', 
+                                 title="Checklist Items per Template")
+            st.plotly_chart(fig_checklist, use_container_width=True)
+        
+        with col2:
+            fig_compliance = px.bar(template_data, x='Template', y='Checklist Compliance',
+                                  title="Checklist Compliance Rate (%)")
+            fig_compliance.add_hline(y=90, line_dash="dash", line_color="red", annotation_text="Target: 90%")
+            st.plotly_chart(fig_compliance, use_container_width=True)
+        
+        # Checklist completion insights
+        st.subheader("🎯 Checklist Insights")
+        
+        insights_data = [
+            {"Metric": "Most Skipped Items", "Value": "Optional documentation reviews", "Impact": "Low"},
+            {"Metric": "Longest Completion Time", "Value": "Technical feasibility analysis", "Impact": "High"},
+            {"Metric": "Highest Failure Rate", "Value": "Budget approval documentation", "Impact": "Medium"},
+            {"Metric": "Best Compliance Step", "Value": "Stakeholder identification", "Impact": "Positive"}
+        ]
+        
+        insights_df = pd.DataFrame(insights_data)
+        st.dataframe(insights_df, use_container_width=True)
+        
+        # Template optimization recommendations
+        st.subheader("🔧 Optimization Recommendations")
+        st.write("1. **Reduce checklist items** in Procurement template - currently has highest item count vs. usage ratio")
+        st.write("2. **Add validation steps** to Budget Approval - lowest compliance rate detected")  
+        st.write("3. **Consider parallel reviews** for IT Project template - longest average completion time")
+        st.write("4. **Standardize descriptions** - 15% of checklist items lack clear descriptions")
 
 elif page == "👤 User Management":
     st.header("User & Role Management")
@@ -1379,78 +1894,4 @@ elif page == "⚙️ SLA Configuration":
         with st.expander("➕ Add New SLA Rule"):
             with st.form("new_sla"):
                 col1, col2 = st.columns(2)
-                with col1:
-                    new_process = st.text_input("Process Type")
-                    new_step = st.text_input("Process Step")
-                with col2:
-                    new_sla = st.number_input("SLA (days)", min_value=1, max_value=30, value=3)
-                    new_warning = st.number_input("Warning Threshold (days)", min_value=1, max_value=30, value=2)
-                
-                if st.form_submit_button("Add SLA Rule"):
-                    if new_process and new_step:
-                        st.success("New SLA rule added!")
-    
-    with tab2:
-        st.subheader("Escalation Matrix")
-        
-        escalation_rules = [
-            {"Trigger": "SLA 80% reached", "Action": "Email to assigned user", "Recipients": "Task Owner"},
-            {"Trigger": "SLA 90% reached", "Action": "Email to manager", "Recipients": "Task Owner + Manager"},
-            {"Trigger": "SLA exceeded", "Action": "Auto-escalate + SMS", "Recipients": "Manager + Department Head"},
-            {"Trigger": "SLA exceeded by 50%", "Action": "Executive notification", "Recipients": "C-Level"}
-        ]
-        
-        escalation_df = pd.DataFrame(escalation_rules)
-        st.dataframe(escalation_df, use_container_width=True)
-        
-        # Escalation settings
-        st.subheader("Escalation Settings")
-        col1, col2 = st.columns(2)
-        with col1:
-            email_enabled = st.checkbox("Enable Email Notifications", value=True)
-            sms_enabled = st.checkbox("Enable SMS Alerts", value=False)
-        with col2:
-            business_hours = st.checkbox("Business Hours Only", value=True)
-            weekend_escalation = st.checkbox("Weekend Escalation", value=False)
-    
-    with tab3:
-        st.subheader("SLA Performance Analysis")
-        
-        # SLA metrics
-        col1, col2, col3, col4 = st.columns(4)
-        with col1:
-            st.metric("Overall SLA Compliance", "87.3%", "↗️ +2.1%")
-        with col2:
-            st.metric("Avg Resolution Time", "6.2 days", "↘️ -0.8 days")
-        with col3:
-            st.metric("Escalations This Month", "12", "↘️ -3")
-        with col4:
-            st.metric("Critical SLA Breaches", "2", "↘️ -1")
-        
-        # SLA performance by step
-        step_performance = {
-            'Step': ['PMO Review', 'Technical Review', 'PMO Validation', 'Final Approval'],
-            'SLA Compliance': [92, 78, 89, 95],
-            'Avg Duration': [2.1, 4.8, 1.6, 2.3]
-        }
-        
-        col1, col2 = st.columns(2)
-        with col1:
-            fig_compliance = px.bar(x=step_performance['Step'], y=step_performance['SLA Compliance'],
-                                  title="SLA Compliance by Step (%)")
-            fig_compliance.add_hline(y=90, line_dash="dash", line_color="red", annotation_text="Target: 90%")
-            st.plotly_chart(fig_compliance, use_container_width=True)
-        
-        with col2:
-            fig_duration = px.bar(x=step_performance['Step'], y=step_performance['Avg Duration'],
-                                title="Average Duration by Step (Days)")
-            st.plotly_chart(fig_duration, use_container_width=True)
-
-# Footer
-st.sidebar.markdown("---")
-st.sidebar.markdown("**BPM System Demo v1.0**")
-st.sidebar.markdown("Built with Streamlit")
-
-# Real-time updates simulation
-if st.sidebar.button("🔄 Refresh Data"):
-    st.rerun()
+                with col1
