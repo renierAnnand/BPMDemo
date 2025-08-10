@@ -251,85 +251,82 @@ if page == "📝 Work Management System":
 elif page == "👥 Manager's View":
     st.header("Manager's View")
     
-    if current_user_info['role'] not in ['Manager', 'PMO']:
-        st.warning("This view is restricted to Managers and PMO users.")
-    else:
-        # Team workload overview
-        st.subheader("Team Workload Overview")
-        
-        # Create workload summary
-        workload_data = []
-        for user_id, user_info in st.session_state.users.items():
-            assigned_count = len([p for p in st.session_state.processes if p['assigned_to'] == user_id])
-            overdue_count = len([p for p in st.session_state.processes 
-                               if p['assigned_to'] == user_id and p['sla_due'] < datetime.now()])
-            workload_data.append({
-                'Employee': user_info['name'],
-                'Role': user_info['role'],
-                'Department': user_info['department'],
-                'Assigned Tasks': assigned_count,
-                'Overdue Tasks': overdue_count
-            })
-        
-        workload_df = pd.DataFrame(workload_data)
-        st.dataframe(workload_df, use_container_width=True)
-        
-        # SLA Compliance Overview
-        st.subheader("SLA Compliance Status")
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            # SLA status pie chart
-            sla_counts = {'On Track': 0, 'Critical': 0, 'Overdue': 0}
-            for process in st.session_state.processes:
-                if process['status'] not in ['Completed', 'Rejected']:
-                    status, _ = get_sla_status(process['sla_due'])
-                    sla_counts[status] += 1
-            
-            fig_pie = px.pie(values=list(sla_counts.values()), 
-                           names=list(sla_counts.keys()),
-                           title="SLA Status Distribution",
-                           color_discrete_map={'On Track': 'green', 'Critical': 'yellow', 'Overdue': 'red'})
-            st.plotly_chart(fig_pie, use_container_width=True)
-        
-        with col2:
-            # Process status bar chart
-            status_counts = {}
-            for process in st.session_state.processes:
-                status = process['status']
-                status_counts[status] = status_counts.get(status, 0) + 1
-            
-            fig_bar = px.bar(x=list(status_counts.keys()), 
-                           y=list(status_counts.values()),
-                           title="Process Status Overview",
-                           labels={'x': 'Status', 'y': 'Count'})
-            st.plotly_chart(fig_bar, use_container_width=True)
-        
-        # Detailed process list
-        st.subheader("All Active Processes")
-        
-        process_data = []
+    # Team workload overview
+    st.subheader("Team Workload Overview")
+    
+    # Create workload summary
+    workload_data = []
+    for user_id, user_info in st.session_state.users.items():
+        assigned_count = len([p for p in st.session_state.processes if p['assigned_to'] == user_id])
+        overdue_count = len([p for p in st.session_state.processes 
+                           if p['assigned_to'] == user_id and p['sla_due'] < datetime.now()])
+        workload_data.append({
+            'Employee': user_info['name'],
+            'Role': user_info['role'],
+            'Department': user_info['department'],
+            'Assigned Tasks': assigned_count,
+            'Overdue Tasks': overdue_count
+        })
+    
+    workload_df = pd.DataFrame(workload_data)
+    st.dataframe(workload_df, use_container_width=True)
+    
+    # SLA Compliance Overview
+    st.subheader("SLA Compliance Status")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        # SLA status pie chart
+        sla_counts = {'On Track': 0, 'Critical': 0, 'Overdue': 0}
         for process in st.session_state.processes:
             if process['status'] not in ['Completed', 'Rejected']:
-                assigned_user = st.session_state.users.get(process['assigned_to'], {}).get('name', 'Unknown')
-                sla_status, sla_icon = get_sla_status(process['sla_due'])
-                
-                process_data.append({
-                    'Title': process['title'],
-                    'Current Step': process['current_step'],
-                    'Assigned To': assigned_user,
-                    'Priority': process['priority'],
-                    'SLA Status': f"{sla_icon} {sla_status}",
-                    'Due Date': process['sla_due'].strftime('%Y-%m-%d'),
-                    'Days Since Created': (datetime.now() - process['created_date']).days
-                })
+                status, _ = get_sla_status(process['sla_due'])
+                sla_counts[status] += 1
         
-        if process_data:
-            process_df = pd.DataFrame(process_data)
-            st.dataframe(process_df, use_container_width=True)
-        else:
-            st.info("No active processes found.")
+        fig_pie = px.pie(values=list(sla_counts.values()), 
+                       names=list(sla_counts.keys()),
+                       title="SLA Status Distribution",
+                       color_discrete_map={'On Track': 'green', 'Critical': 'yellow', 'Overdue': 'red'})
+        st.plotly_chart(fig_pie, use_container_width=True)
+    
+    with col2:
+        # Process status bar chart
+        status_counts = {}
+        for process in st.session_state.processes:
+            status = process['status']
+            status_counts[status] = status_counts.get(status, 0) + 1
+        
+        fig_bar = px.bar(x=list(status_counts.keys()), 
+                       y=list(status_counts.values()),
+                       title="Process Status Overview",
+                       labels={'x': 'Status', 'y': 'Count'})
+        st.plotly_chart(fig_bar, use_container_width=True)
+    
+    # Detailed process list
+    st.subheader("All Active Processes")
+    
+    process_data = []
+    for process in st.session_state.processes:
+        if process['status'] not in ['Completed', 'Rejected']:
+            assigned_user = st.session_state.users.get(process['assigned_to'], {}).get('name', 'Unknown')
+            sla_status, sla_icon = get_sla_status(process['sla_due'])
+            
+            process_data.append({
+                'Title': process['title'],
+                'Current Step': process['current_step'],
+                'Assigned To': assigned_user,
+                'Priority': process['priority'],
+                'SLA Status': f"{sla_icon} {sla_status}",
+                'Due Date': process['sla_due'].strftime('%Y-%m-%d'),
+                'Days Since Created': (datetime.now() - process['created_date']).days
+            })
+    
+    if process_data:
+        process_df = pd.DataFrame(process_data)
+        st.dataframe(process_df, use_container_width=True)
+    else:
+        st.info("No active processes found.")
 
 elif page == "📊 Management Dashboard":
     st.header("Management Dashboard")
@@ -425,9 +422,6 @@ elif page == "📊 Management Dashboard":
 elif page == "➕ New Process Request":
     st.header("New IT Project Request")
     
-    if current_user_info['role'] != 'Business User':
-        st.warning("Process creation is typically done by Business Users.")
-    
     with st.form("new_process_form"):
         st.subheader("Project Details")
         
@@ -477,178 +471,172 @@ elif page == "➕ New Process Request":
 elif page == "🔧 Process Templates":
     st.header("Process Template Management")
     
-    if current_user_info['role'] not in ['Manager', 'PMO']:
-        st.warning("This section is restricted to Managers and PMO users.")
-    else:
-        tab1, tab2, tab3 = st.tabs(["📋 Available Templates", "➕ Create Template", "📊 Template Analytics"])
+    tab1, tab2, tab3 = st.tabs(["📋 Available Templates", "➕ Create Template", "📊 Template Analytics"])
+    
+    with tab1:
+        st.subheader("Available Process Templates")
         
-        with tab1:
-            st.subheader("Available Process Templates")
-            
-            templates = [
-                {"name": "IT Project Request", "steps": 5, "avg_duration": "12 days", "usage": 45, "status": "Active"},
-                {"name": "Procurement Request", "steps": 6, "avg_duration": "8 days", "usage": 23, "status": "Active"},
-                {"name": "HR Onboarding", "steps": 4, "avg_duration": "5 days", "usage": 12, "status": "Draft"},
-                {"name": "Budget Approval", "steps": 3, "avg_duration": "3 days", "usage": 67, "status": "Active"}
-            ]
-            
-            for template in templates:
-                with st.expander(f"📄 {template['name']} ({template['status']})"):
-                    col1, col2, col3 = st.columns(3)
-                    with col1:
-                        st.metric("Steps", template['steps'])
-                    with col2:
-                        st.metric("Avg Duration", template['avg_duration'])
-                    with col3:
-                        st.metric("Monthly Usage", template['usage'])
-                    
-                    if st.button(f"Edit {template['name']}", key=f"edit_{template['name']}"):
-                        st.info("Template editing interface would open here")
+        templates = [
+            {"name": "IT Project Request", "steps": 5, "avg_duration": "12 days", "usage": 45, "status": "Active"},
+            {"name": "Procurement Request", "steps": 6, "avg_duration": "8 days", "usage": 23, "status": "Active"},
+            {"name": "HR Onboarding", "steps": 4, "avg_duration": "5 days", "usage": 12, "status": "Draft"},
+            {"name": "Budget Approval", "steps": 3, "avg_duration": "3 days", "usage": 67, "status": "Active"}
+        ]
         
-        with tab2:
-            st.subheader("Create New Process Template")
-            
-            with st.form("new_template"):
-                template_name = st.text_input("Template Name")
-                template_desc = st.text_area("Description")
+        for template in templates:
+            with st.expander(f"📄 {template['name']} ({template['status']})"):
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("Steps", template['steps'])
+                with col2:
+                    st.metric("Avg Duration", template['avg_duration'])
+                with col3:
+                    st.metric("Monthly Usage", template['usage'])
                 
-                st.write("**Define Process Steps:**")
-                num_steps = st.number_input("Number of Steps", min_value=1, max_value=10, value=3)
-                
-                steps = []
-                for i in range(num_steps):
-                    col1, col2, col3 = st.columns(3)
-                    with col1:
-                        step_name = st.text_input(f"Step {i+1} Name", key=f"step_name_{i}")
-                    with col2:
-                        step_role = st.selectbox(f"Assigned Role", ["PMO", "Manager", "Technical Lead", "Business User"], key=f"step_role_{i}")
-                    with col3:
-                        step_sla = st.number_input(f"SLA (days)", min_value=1, max_value=30, value=3, key=f"step_sla_{i}")
-                    
-                    if step_name:
-                        steps.append({"name": step_name, "role": step_role, "sla": step_sla})
-                
-                if st.form_submit_button("Create Template"):
-                    if template_name and len(steps) > 0:
-                        st.success(f"Template '{template_name}' created successfully!")
-                    else:
-                        st.error("Please provide template name and at least one step")
+                if st.button(f"Edit {template['name']}", key=f"edit_{template['name']}"):
+                    st.info("Template editing interface would open here")
+    
+    with tab2:
+        st.subheader("Create New Process Template")
         
-        with tab3:
-            st.subheader("Template Performance Analytics")
+        with st.form("new_template"):
+            template_name = st.text_input("Template Name")
+            template_desc = st.text_area("Description")
             
-            # Template usage chart
-            template_data = pd.DataFrame({
-                'Template': ['IT Project', 'Procurement', 'HR Onboarding', 'Budget Approval'],
-                'Usage': [45, 23, 12, 67],
-                'Avg Completion Time': [12, 8, 5, 3],
-                'Success Rate': [85, 92, 98, 78]
-            })
+            st.write("**Define Process Steps:**")
+            num_steps = st.number_input("Number of Steps", min_value=1, max_value=10, value=3)
             
-            col1, col2 = st.columns(2)
-            with col1:
-                fig_usage = px.bar(template_data, x='Template', y='Usage', title="Template Usage (Monthly)")
-                st.plotly_chart(fig_usage, use_container_width=True)
+            steps = []
+            for i in range(num_steps):
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    step_name = st.text_input(f"Step {i+1} Name", key=f"step_name_{i}")
+                with col2:
+                    step_role = st.selectbox(f"Assigned Role", ["PMO", "Manager", "Technical Lead", "Business User"], key=f"step_role_{i}")
+                with col3:
+                    step_sla = st.number_input(f"SLA (days)", min_value=1, max_value=30, value=3, key=f"step_sla_{i}")
+                
+                if step_name:
+                    steps.append({"name": step_name, "role": step_role, "sla": step_sla})
             
-            with col2:
-                fig_success = px.bar(template_data, x='Template', y='Success Rate', title="Template Success Rate (%)")
-                st.plotly_chart(fig_success, use_container_width=True)
+            if st.form_submit_button("Create Template"):
+                if template_name and len(steps) > 0:
+                    st.success(f"Template '{template_name}' created successfully!")
+                else:
+                    st.error("Please provide template name and at least one step")
+    
+    with tab3:
+        st.subheader("Template Performance Analytics")
+        
+        # Template usage chart
+        template_data = pd.DataFrame({
+            'Template': ['IT Project', 'Procurement', 'HR Onboarding', 'Budget Approval'],
+            'Usage': [45, 23, 12, 67],
+            'Avg Completion Time': [12, 8, 5, 3],
+            'Success Rate': [85, 92, 98, 78]
+        })
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            fig_usage = px.bar(template_data, x='Template', y='Usage', title="Template Usage (Monthly)")
+            st.plotly_chart(fig_usage, use_container_width=True)
+        
+        with col2:
+            fig_success = px.bar(template_data, x='Template', y='Success Rate', title="Template Success Rate (%)")
+            st.plotly_chart(fig_success, use_container_width=True)
 
 elif page == "👤 User Management":
     st.header("User & Role Management")
     
-    if current_user_info['role'] != 'Manager':
-        st.warning("This section is restricted to Managers.")
-    else:
-        tab1, tab2, tab3 = st.tabs(["👥 Users", "🔐 Roles & Permissions", "📊 User Analytics"])
+    tab1, tab2, tab3 = st.tabs(["👥 Users", "🔐 Roles & Permissions", "📊 User Analytics"])
+    
+    with tab1:
+        st.subheader("User Management")
         
-        with tab1:
-            st.subheader("User Management")
+        # Add new user
+        with st.expander("➕ Add New User"):
+            with st.form("add_user"):
+                col1, col2 = st.columns(2)
+                with col1:
+                    new_name = st.text_input("Full Name")
+                    new_email = st.text_input("Email")
+                with col2:
+                    new_role = st.selectbox("Role", ["Business User", "PMO", "Technical Lead", "Manager"])
+                    new_dept = st.selectbox("Department", ["IT", "Marketing", "Finance", "HR", "Operations"])
+                
+                if st.form_submit_button("Add User"):
+                    if new_name and new_email:
+                        user_id = f"{new_name.lower().replace(' ', '_')}"
+                        st.session_state.users[user_id] = {
+                            'name': new_name,
+                            'role': new_role,
+                            'department': new_dept,
+                            'email': new_email
+                        }
+                        st.success(f"User {new_name} added successfully!")
+                        st.rerun()
+        
+        # User list
+        st.subheader("Current Users")
+        user_data = []
+        for user_id, user_info in st.session_state.users.items():
+            assigned_tasks = len([p for p in st.session_state.processes if p['assigned_to'] == user_id])
+            user_data.append({
+                'Name': user_info['name'],
+                'Role': user_info['role'],
+                'Department': user_info['department'],
+                'Active Tasks': assigned_tasks,
+                'Status': 'Active'
+            })
+        
+        user_df = pd.DataFrame(user_data)
+        st.dataframe(user_df, use_container_width=True)
+    
+    with tab2:
+        st.subheader("Role Configuration")
+        
+        roles_permissions = {
+            'Business User': ['Submit Requests', 'View Own Tasks', 'Update Task Status'],
+            'PMO': ['Review Requests', 'Assign Tasks', 'View All Tasks', 'Generate Reports'],
+            'Technical Lead': ['Technical Review', 'Resource Planning', 'View Team Tasks'],
+            'Manager': ['Final Approval', 'User Management', 'System Configuration', 'All Permissions']
+        }
+        
+        for role, permissions in roles_permissions.items():
+            with st.expander(f"🔐 {role} Permissions"):
+                for perm in permissions:
+                    st.write(f"✓ {perm}")
+    
+    with tab3:
+        st.subheader("User Activity Analytics")
+        
+        # User productivity metrics
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # Tasks completed by user
+            user_completion = {}
+            for process in st.session_state.processes:
+                if process['status'] == 'Completed':
+                    assigned_user = st.session_state.users.get(process['assigned_to'], {}).get('name', 'Unknown')
+                    user_completion[assigned_user] = user_completion.get(assigned_user, 0) + 1
             
-            # Add new user
-            with st.expander("➕ Add New User"):
-                with st.form("add_user"):
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        new_name = st.text_input("Full Name")
-                        new_email = st.text_input("Email")
-                    with col2:
-                        new_role = st.selectbox("Role", ["Business User", "PMO", "Technical Lead", "Manager"])
-                        new_dept = st.selectbox("Department", ["IT", "Marketing", "Finance", "HR", "Operations"])
-                    
-                    if st.form_submit_button("Add User"):
-                        if new_name and new_email:
-                            user_id = f"{new_name.lower().replace(' ', '_')}"
-                            st.session_state.users[user_id] = {
-                                'name': new_name,
-                                'role': new_role,
-                                'department': new_dept,
-                                'email': new_email
-                            }
-                            st.success(f"User {new_name} added successfully!")
-                            st.rerun()
-            
-            # User list
-            st.subheader("Current Users")
-            user_data = []
+            if user_completion:
+                fig_completion = px.bar(x=list(user_completion.keys()), y=list(user_completion.values()),
+                                      title="Tasks Completed by User")
+                st.plotly_chart(fig_completion, use_container_width=True)
+        
+        with col2:
+            # Department workload
+            dept_workload = {}
             for user_id, user_info in st.session_state.users.items():
-                assigned_tasks = len([p for p in st.session_state.processes if p['assigned_to'] == user_id])
-                user_data.append({
-                    'Name': user_info['name'],
-                    'Role': user_info['role'],
-                    'Department': user_info['department'],
-                    'Active Tasks': assigned_tasks,
-                    'Status': 'Active'
-                })
+                dept = user_info['department']
+                assigned = len([p for p in st.session_state.processes if p['assigned_to'] == user_id])
+                dept_workload[dept] = dept_workload.get(dept, 0) + assigned
             
-            user_df = pd.DataFrame(user_data)
-            st.dataframe(user_df, use_container_width=True)
-        
-        with tab2:
-            st.subheader("Role Configuration")
-            
-            roles_permissions = {
-                'Business User': ['Submit Requests', 'View Own Tasks', 'Update Task Status'],
-                'PMO': ['Review Requests', 'Assign Tasks', 'View All Tasks', 'Generate Reports'],
-                'Technical Lead': ['Technical Review', 'Resource Planning', 'View Team Tasks'],
-                'Manager': ['Final Approval', 'User Management', 'System Configuration', 'All Permissions']
-            }
-            
-            for role, permissions in roles_permissions.items():
-                with st.expander(f"🔐 {role} Permissions"):
-                    for perm in permissions:
-                        st.write(f"✓ {perm}")
-        
-        with tab3:
-            st.subheader("User Activity Analytics")
-            
-            # User productivity metrics
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                # Tasks completed by user
-                user_completion = {}
-                for process in st.session_state.processes:
-                    if process['status'] == 'Completed':
-                        assigned_user = st.session_state.users.get(process['assigned_to'], {}).get('name', 'Unknown')
-                        user_completion[assigned_user] = user_completion.get(assigned_user, 0) + 1
-                
-                if user_completion:
-                    fig_completion = px.bar(x=list(user_completion.keys()), y=list(user_completion.values()),
-                                          title="Tasks Completed by User")
-                    st.plotly_chart(fig_completion, use_container_width=True)
-            
-            with col2:
-                # Department workload
-                dept_workload = {}
-                for user_id, user_info in st.session_state.users.items():
-                    dept = user_info['department']
-                    assigned = len([p for p in st.session_state.processes if p['assigned_to'] == user_id])
-                    dept_workload[dept] = dept_workload.get(dept, 0) + assigned
-                
-                fig_dept = px.pie(values=list(dept_workload.values()), names=list(dept_workload.keys()),
-                                title="Workload by Department")
-                st.plotly_chart(fig_dept, use_container_width=True)
+            fig_dept = px.pie(values=list(dept_workload.values()), names=list(dept_workload.keys()),
+                            title="Workload by Department")
+            st.plotly_chart(fig_dept, use_container_width=True)
 
 elif page == "📈 Advanced Analytics":
     st.header("Advanced Process Analytics")
@@ -802,178 +790,172 @@ elif page == "📈 Advanced Analytics":
 elif page == "🔗 System Integrations":
     st.header("System Integration Management")
     
-    if current_user_info['role'] not in ['Manager', 'Technical Lead']:
-        st.warning("This section is restricted to Managers and Technical Leads.")
-    else:
-        tab1, tab2, tab3 = st.tabs(["🔌 Active Integrations", "➕ Add Integration", "📊 Integration Health"])
+    tab1, tab2, tab3 = st.tabs(["🔌 Active Integrations", "➕ Add Integration", "📊 Integration Health"])
+    
+    with tab1:
+        st.subheader("Current System Integrations")
         
-        with tab1:
-            st.subheader("Current System Integrations")
-            
-            integrations = [
-                {"System": "Salesforce CRM", "Type": "Customer Data", "Status": "🟢 Active", "Last Sync": "2 min ago", "Records": "1,247"},
-                {"System": "SAP ERP", "Type": "Financial Data", "Status": "🟡 Warning", "Last Sync": "15 min ago", "Records": "892"},
-                {"System": "Jira", "Type": "Project Management", "Status": "🟢 Active", "Last Sync": "1 min ago", "Records": "156"},
-                {"System": "Office 365", "Type": "Email/Calendar", "Status": "🔴 Error", "Last Sync": "2 hours ago", "Records": "0"}
-            ]
-            
-            for integration in integrations:
-                with st.expander(f"{integration['System']} - {integration['Status']}"):
-                    col1, col2, col3 = st.columns(3)
-                    with col1:
-                        st.write(f"**Type:** {integration['Type']}")
-                        st.write(f"**Status:** {integration['Status']}")
-                    with col2:
-                        st.write(f"**Last Sync:** {integration['Last Sync']}")
-                        st.write(f"**Records:** {integration['Records']}")
-                    with col3:
-                        if st.button(f"Test Connection", key=f"test_{integration['System']}"):
-                            st.success("Connection test successful!")
-                        if st.button(f"Force Sync", key=f"sync_{integration['System']}"):
-                            st.info("Synchronization initiated...")
+        integrations = [
+            {"System": "Salesforce CRM", "Type": "Customer Data", "Status": "🟢 Active", "Last Sync": "2 min ago", "Records": "1,247"},
+            {"System": "SAP ERP", "Type": "Financial Data", "Status": "🟡 Warning", "Last Sync": "15 min ago", "Records": "892"},
+            {"System": "Jira", "Type": "Project Management", "Status": "🟢 Active", "Last Sync": "1 min ago", "Records": "156"},
+            {"System": "Office 365", "Type": "Email/Calendar", "Status": "🔴 Error", "Last Sync": "2 hours ago", "Records": "0"}
+        ]
         
-        with tab2:
-            st.subheader("Add New Integration")
-            
-            with st.form("new_integration"):
-                system_name = st.text_input("System Name")
-                system_type = st.selectbox("Integration Type", [
-                    "CRM", "ERP", "Project Management", "HR System", "Email", "Database", "Custom API"
-                ])
-                
-                st.write("**Connection Details:**")
-                col1, col2 = st.columns(2)
+        for integration in integrations:
+            with st.expander(f"{integration['System']} - {integration['Status']}"):
+                col1, col2, col3 = st.columns(3)
                 with col1:
-                    endpoint = st.text_input("API Endpoint")
-                    auth_type = st.selectbox("Authentication", ["API Key", "OAuth", "Basic Auth", "Token"])
+                    st.write(f"**Type:** {integration['Type']}")
+                    st.write(f"**Status:** {integration['Status']}")
                 with col2:
-                    sync_frequency = st.selectbox("Sync Frequency", ["Real-time", "Every 5 min", "Hourly", "Daily"])
-                    data_direction = st.selectbox("Data Flow", ["Bidirectional", "Import Only", "Export Only"])
-                
-                if st.form_submit_button("Add Integration"):
-                    if system_name and endpoint:
-                        st.success(f"Integration with {system_name} configured successfully!")
-                    else:
-                        st.error("Please fill in required fields")
+                    st.write(f"**Last Sync:** {integration['Last Sync']}")
+                    st.write(f"**Records:** {integration['Records']}")
+                with col3:
+                    if st.button(f"Test Connection", key=f"test_{integration['System']}"):
+                        st.success("Connection test successful!")
+                    if st.button(f"Force Sync", key=f"sync_{integration['System']}"):
+                        st.info("Synchronization initiated...")
+    
+    with tab2:
+        st.subheader("Add New Integration")
         
-        with tab3:
-            st.subheader("Integration Health Dashboard")
+        with st.form("new_integration"):
+            system_name = st.text_input("System Name")
+            system_type = st.selectbox("Integration Type", [
+                "CRM", "ERP", "Project Management", "HR System", "Email", "Database", "Custom API"
+            ])
             
-            # Integration performance metrics
-            col1, col2, col3, col4 = st.columns(4)
+            st.write("**Connection Details:**")
+            col1, col2 = st.columns(2)
             with col1:
-                st.metric("Active Integrations", "4")
+                endpoint = st.text_input("API Endpoint")
+                auth_type = st.selectbox("Authentication", ["API Key", "OAuth", "Basic Auth", "Token"])
             with col2:
-                st.metric("Sync Success Rate", "96.7%", "↗️ +2.1%")
-            with col3:
-                st.metric("Avg Response Time", "145ms", "↘️ -23ms")
-            with col4:
-                st.metric("Data Records/Hour", "12.4K", "↗️ +1.2K")
+                sync_frequency = st.selectbox("Sync Frequency", ["Real-time", "Every 5 min", "Hourly", "Daily"])
+                data_direction = st.selectbox("Data Flow", ["Bidirectional", "Import Only", "Export Only"])
             
-            # Sync status over time
-            dates = pd.date_range(start=datetime.now()-timedelta(days=7), end=datetime.now(), freq='H')
-            sync_success = [95 + (i % 10) for i in range(len(dates))]
-            
-            fig_sync = px.line(x=dates, y=sync_success, title="Integration Sync Success Rate (7 Days)")
-            fig_sync.add_hline(y=95, line_dash="dash", line_color="red", annotation_text="SLA: 95%")
-            st.plotly_chart(fig_sync, use_container_width=True)
+            if st.form_submit_button("Add Integration"):
+                if system_name and endpoint:
+                    st.success(f"Integration with {system_name} configured successfully!")
+                else:
+                    st.error("Please fill in required fields")
+    
+    with tab3:
+        st.subheader("Integration Health Dashboard")
+        
+        # Integration performance metrics
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("Active Integrations", "4")
+        with col2:
+            st.metric("Sync Success Rate", "96.7%", "↗️ +2.1%")
+        with col3:
+            st.metric("Avg Response Time", "145ms", "↘️ -23ms")
+        with col4:
+            st.metric("Data Records/Hour", "12.4K", "↗️ +1.2K")
+        
+        # Sync status over time
+        dates = pd.date_range(start=datetime.now()-timedelta(days=7), end=datetime.now(), freq='H')
+        sync_success = [95 + (i % 10) for i in range(len(dates))]
+        
+        fig_sync = px.line(x=dates, y=sync_success, title="Integration Sync Success Rate (7 Days)")
+        fig_sync.add_hline(y=95, line_dash="dash", line_color="red", annotation_text="SLA: 95%")
+        st.plotly_chart(fig_sync, use_container_width=True)
 
 elif page == "⚙️ SLA Configuration":
     st.header("SLA Configuration & Management")
     
-    if current_user_info['role'] not in ['Manager', 'PMO']:
-        st.warning("This section is restricted to Managers and PMO users.")
-    else:
-        tab1, tab2, tab3 = st.tabs(["📋 SLA Rules", "🚨 Escalation Matrix", "📊 SLA Performance"])
+    tab1, tab2, tab3 = st.tabs(["📋 SLA Rules", "🚨 Escalation Matrix", "📊 SLA Performance"])
+    
+    with tab1:
+        st.subheader("SLA Rule Configuration")
         
-        with tab1:
-            st.subheader("SLA Rule Configuration")
-            
-            # Current SLA rules
-            sla_rules = [
-                {"Process": "IT Project Request", "Step": "PMO Review", "SLA": "3 days", "Warning": "2 days", "Critical": "2.5 days"},
-                {"Process": "IT Project Request", "Step": "Technical Review", "SLA": "5 days", "Warning": "3 days", "Critical": "4 days"},
-                {"Process": "IT Project Request", "Step": "PMO Validation", "SLA": "2 days", "Warning": "1 day", "Critical": "1.5 days"},
-                {"Process": "IT Project Request", "Step": "Final Approval", "SLA": "3 days", "Warning": "2 days", "Critical": "2.5 days"},
-                {"Process": "Procurement", "Step": "Vendor Review", "SLA": "2 days", "Warning": "1 day", "Critical": "1.5 days"}
-            ]
-            
-            sla_df = pd.DataFrame(sla_rules)
-            edited_df = st.data_editor(sla_df, use_container_width=True)
-            
-            if st.button("Save SLA Configuration"):
-                st.success("SLA rules updated successfully!")
-            
-            # Add new SLA rule
-            with st.expander("➕ Add New SLA Rule"):
-                with st.form("new_sla"):
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        new_process = st.text_input("Process Type")
-                        new_step = st.text_input("Process Step")
-                    with col2:
-                        new_sla = st.number_input("SLA (days)", min_value=1, max_value=30, value=3)
-                        new_warning = st.number_input("Warning Threshold (days)", min_value=1, max_value=30, value=2)
-                    
-                    if st.form_submit_button("Add SLA Rule"):
-                        if new_process and new_step:
-                            st.success("New SLA rule added!")
+        # Current SLA rules
+        sla_rules = [
+            {"Process": "IT Project Request", "Step": "PMO Review", "SLA": "3 days", "Warning": "2 days", "Critical": "2.5 days"},
+            {"Process": "IT Project Request", "Step": "Technical Review", "SLA": "5 days", "Warning": "3 days", "Critical": "4 days"},
+            {"Process": "IT Project Request", "Step": "PMO Validation", "SLA": "2 days", "Warning": "1 day", "Critical": "1.5 days"},
+            {"Process": "IT Project Request", "Step": "Final Approval", "SLA": "3 days", "Warning": "2 days", "Critical": "2.5 days"},
+            {"Process": "Procurement", "Step": "Vendor Review", "SLA": "2 days", "Warning": "1 day", "Critical": "1.5 days"}
+        ]
         
-        with tab2:
-            st.subheader("Escalation Matrix")
-            
-            escalation_rules = [
-                {"Trigger": "SLA 80% reached", "Action": "Email to assigned user", "Recipients": "Task Owner"},
-                {"Trigger": "SLA 90% reached", "Action": "Email to manager", "Recipients": "Task Owner + Manager"},
-                {"Trigger": "SLA exceeded", "Action": "Auto-escalate + SMS", "Recipients": "Manager + Department Head"},
-                {"Trigger": "SLA exceeded by 50%", "Action": "Executive notification", "Recipients": "C-Level"}
-            ]
-            
-            escalation_df = pd.DataFrame(escalation_rules)
-            st.dataframe(escalation_df, use_container_width=True)
-            
-            # Escalation settings
-            st.subheader("Escalation Settings")
-            col1, col2 = st.columns(2)
-            with col1:
-                email_enabled = st.checkbox("Enable Email Notifications", value=True)
-                sms_enabled = st.checkbox("Enable SMS Alerts", value=False)
-            with col2:
-                business_hours = st.checkbox("Business Hours Only", value=True)
-                weekend_escalation = st.checkbox("Weekend Escalation", value=False)
+        sla_df = pd.DataFrame(sla_rules)
+        edited_df = st.data_editor(sla_df, use_container_width=True)
         
-        with tab3:
-            st.subheader("SLA Performance Analysis")
-            
-            # SLA metrics
-            col1, col2, col3, col4 = st.columns(4)
-            with col1:
-                st.metric("Overall SLA Compliance", "87.3%", "↗️ +2.1%")
-            with col2:
-                st.metric("Avg Resolution Time", "6.2 days", "↘️ -0.8 days")
-            with col3:
-                st.metric("Escalations This Month", "12", "↘️ -3")
-            with col4:
-                st.metric("Critical SLA Breaches", "2", "↘️ -1")
-            
-            # SLA performance by step
-            step_performance = {
-                'Step': ['PMO Review', 'Technical Review', 'PMO Validation', 'Final Approval'],
-                'SLA Compliance': [92, 78, 89, 95],
-                'Avg Duration': [2.1, 4.8, 1.6, 2.3]
-            }
-            
-            col1, col2 = st.columns(2)
-            with col1:
-                fig_compliance = px.bar(x=step_performance['Step'], y=step_performance['SLA Compliance'],
-                                      title="SLA Compliance by Step (%)")
-                fig_compliance.add_hline(y=90, line_dash="dash", line_color="red", annotation_text="Target: 90%")
-                st.plotly_chart(fig_compliance, use_container_width=True)
-            
-            with col2:
-                fig_duration = px.bar(x=step_performance['Step'], y=step_performance['Avg Duration'],
-                                    title="Average Duration by Step (Days)")
-                st.plotly_chart(fig_duration, use_container_width=True)
+        if st.button("Save SLA Configuration"):
+            st.success("SLA rules updated successfully!")
+        
+        # Add new SLA rule
+        with st.expander("➕ Add New SLA Rule"):
+            with st.form("new_sla"):
+                col1, col2 = st.columns(2)
+                with col1:
+                    new_process = st.text_input("Process Type")
+                    new_step = st.text_input("Process Step")
+                with col2:
+                    new_sla = st.number_input("SLA (days)", min_value=1, max_value=30, value=3)
+                    new_warning = st.number_input("Warning Threshold (days)", min_value=1, max_value=30, value=2)
+                
+                if st.form_submit_button("Add SLA Rule"):
+                    if new_process and new_step:
+                        st.success("New SLA rule added!")
+    
+    with tab2:
+        st.subheader("Escalation Matrix")
+        
+        escalation_rules = [
+            {"Trigger": "SLA 80% reached", "Action": "Email to assigned user", "Recipients": "Task Owner"},
+            {"Trigger": "SLA 90% reached", "Action": "Email to manager", "Recipients": "Task Owner + Manager"},
+            {"Trigger": "SLA exceeded", "Action": "Auto-escalate + SMS", "Recipients": "Manager + Department Head"},
+            {"Trigger": "SLA exceeded by 50%", "Action": "Executive notification", "Recipients": "C-Level"}
+        ]
+        
+        escalation_df = pd.DataFrame(escalation_rules)
+        st.dataframe(escalation_df, use_container_width=True)
+        
+        # Escalation settings
+        st.subheader("Escalation Settings")
+        col1, col2 = st.columns(2)
+        with col1:
+            email_enabled = st.checkbox("Enable Email Notifications", value=True)
+            sms_enabled = st.checkbox("Enable SMS Alerts", value=False)
+        with col2:
+            business_hours = st.checkbox("Business Hours Only", value=True)
+            weekend_escalation = st.checkbox("Weekend Escalation", value=False)
+    
+    with tab3:
+        st.subheader("SLA Performance Analysis")
+        
+        # SLA metrics
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("Overall SLA Compliance", "87.3%", "↗️ +2.1%")
+        with col2:
+            st.metric("Avg Resolution Time", "6.2 days", "↘️ -0.8 days")
+        with col3:
+            st.metric("Escalations This Month", "12", "↘️ -3")
+        with col4:
+            st.metric("Critical SLA Breaches", "2", "↘️ -1")
+        
+        # SLA performance by step
+        step_performance = {
+            'Step': ['PMO Review', 'Technical Review', 'PMO Validation', 'Final Approval'],
+            'SLA Compliance': [92, 78, 89, 95],
+            'Avg Duration': [2.1, 4.8, 1.6, 2.3]
+        }
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            fig_compliance = px.bar(x=step_performance['Step'], y=step_performance['SLA Compliance'],
+                                  title="SLA Compliance by Step (%)")
+            fig_compliance.add_hline(y=90, line_dash="dash", line_color="red", annotation_text="Target: 90%")
+            st.plotly_chart(fig_compliance, use_container_width=True)
+        
+        with col2:
+            fig_duration = px.bar(x=step_performance['Step'], y=step_performance['Avg Duration'],
+                                title="Average Duration by Step (Days)")
+            st.plotly_chart(fig_duration, use_container_width=True)
 
 # Footer
 st.sidebar.markdown("---")
