@@ -861,9 +861,9 @@ def show_enhanced_customer_portal():
 # ========================================
 
 def show_work_management_dashboard():
-    """Basic work management dashboard."""
-    st.title("🎫 Work Management Dashboard")
-    st.markdown("### Service Coordination & Customer Management")
+    """Enhanced work management and ticketing system."""
+    st.title("🎫 Work Management & Ticketing System")
+    st.markdown("### Proactive Service Scheduling & Revenue Optimization")
     
     try:
         generators_df = load_base_generator_data()
@@ -873,62 +873,134 @@ def show_work_management_dashboard():
             st.error("No data available. Please check system status.")
             return
         
+        # Generate tickets for work management (similar to customer portal)
+        work_tickets = []
+        
+        for _, gen_status in status_df.iterrows():
+            try:
+                gen_info = generators_df[generators_df['serial_number'] == gen_status['serial_number']].iloc[0]
+                
+                # Create tickets based on generator status - force some for demo
+                should_create = (
+                    gen_status['operational_status'] == 'FAULT' or
+                    gen_status['oil_pressure'] < 28 or 
+                    gen_status['coolant_temp'] > 95 or 
+                    gen_status['vibration'] > 4.0 or 
+                    gen_status['fuel_level'] < 30 or
+                    gen_status.get('needs_proactive_contact', False) or
+                    np.random.random() < 0.4  # 40% chance to create ticket for demo
+                )
+                
+                if should_create:
+                    if gen_status['operational_status'] == 'FAULT':
+                        ticket_type = '🚨 FAULT RESPONSE'
+                        priority = 'CRITICAL'
+                        service_detail = gen_status['fault_description']
+                    elif (gen_status['oil_pressure'] < 28 or gen_status['coolant_temp'] > 95 or 
+                          gen_status['vibration'] > 4.0 or gen_status['fuel_level'] < 30):
+                        ticket_type = '🚨 FAULT RESPONSE'
+                        priority = 'CRITICAL'
+                        issues = []
+                        if gen_status['oil_pressure'] < 28: issues.append('Low oil pressure')
+                        if gen_status['coolant_temp'] > 95: issues.append('High coolant temperature')
+                        if gen_status['vibration'] > 4.0: issues.append('High vibration')
+                        if gen_status['fuel_level'] < 30: issues.append('Low fuel')
+                        service_detail = ', '.join(issues)
+                    else:
+                        ticket_type = '📅 PREVENTIVE SERVICE'
+                        priority = 'HIGH'
+                        service_detail = f"Service due in {gen_status.get('next_service_hours', 100)} hours"
+                    
+                    ticket_id = f"TK-{random.randint(10000, 99999)}"
+                    revenue_usd = 1275 if priority == 'CRITICAL' else 850
+                    
+                    work_tickets.append({
+                        'Ticket ID': ticket_id,
+                        'Type': ticket_type,
+                        'Generator': gen_status['serial_number'],
+                        'Customer': gen_info['customer_name'][:25] + "...",
+                        'Primary Contact': f"{gen_info.get('primary_contact_name', 'Contact')} - {gen_info.get('primary_contact_phone', '+966-11-000-0000')}",
+                        'Contact Email': gen_info.get('primary_contact_email', 'contact@customer.sa'),
+                        'Service Detail': service_detail,
+                        'Runtime Hours': f"{gen_status.get('runtime_hours', 5000):,} hrs",
+                        'Parts Needed': 'TBD',
+                        'Priority': priority,
+                        'Est. Revenue': format_currency(revenue_usd),
+                        'Action Required': 'Contact immediately - Emergency service' if priority == 'CRITICAL' else 'Schedule within 48 hours'
+                    })
+            except Exception:
+                continue
+        
         # Basic metrics
-        col1, col2, col3, col4 = st.columns(4)
+        col1, col2, col3, col4, col5 = st.columns(5)
         
         total_generators = len(generators_df)
         running_count = len(status_df[status_df['operational_status'] == 'RUNNING'])
         fault_count = len(status_df[status_df['operational_status'] == 'FAULT'])
-        opportunities = len(status_df[status_df['revenue_opportunity'] == True])
+        total_opportunities = len(work_tickets)
+        critical_tickets = len([t for t in work_tickets if t['Priority'] == 'CRITICAL'])
         
         with col1:
-            st.metric("Total Generators", total_generators)
+            st.metric("🎫 Active Tickets", total_opportunities)
         with col2:
-            st.metric("🟢 Running", running_count)
+            st.metric("⏰ Service Due", len([t for t in work_tickets if 'Service due' in t['Service Detail']]))
         with col3:
-            st.metric("🔴 Faults", fault_count, delta="Critical" if fault_count > 0 else "Normal")
+            st.metric("🚨 Fault Alerts", critical_tickets, delta="Critical" if critical_tickets > 0 else "Normal")
         with col4:
-            st.metric("💰 Opportunities", opportunities)
+            if work_tickets:
+                total_revenue = sum([float(t['Est. Revenue'].replace('SAR ', '').replace(',', '')) for t in work_tickets])
+                st.metric("💰 Revenue Potential", f"SAR {total_revenue:,.0f}")
+            else:
+                st.metric("💰 Revenue Potential", "SAR 0")
+        with col5:
+            st.metric("⚡ Generators Running", running_count, delta=f"Of {total_generators} total")
         
-        # Show fault alerts
-        if fault_count > 0:
-            st.subheader("🚨 Active Fault Alerts")
-            fault_generators = status_df[status_df['operational_status'] == 'FAULT']
-            for _, gen in fault_generators.iterrows():
-                st.error(f"""
-                **Generator:** {gen['serial_number']} - {gen['customer_name']}
-                **Issue:** {gen['fault_description']}
-                **Action:** Contact customer for emergency service
-                """)
-        
-        # Service opportunities
-        if opportunities > 0:
-            st.subheader("⚡ Service Opportunities")
-            opportunity_generators = status_df[status_df['revenue_opportunity'] == True]
+        # Display tickets table
+        if work_tickets:
+            st.subheader("🔔 All Tickets")
+            st.markdown(f"**Showing {len(work_tickets)} of {len(work_tickets)} total tickets**")
             
-            opportunities_list = []
-            for _, gen in opportunity_generators.iterrows():
-                revenue_estimate = CONFIG['revenue_targets']['service_revenue_per_ticket']
-                
-                opportunities_list.append({
-                    'Generator': gen['serial_number'],
-                    'Customer': gen['customer_name'][:30] + "...",
-                    'Issue': gen['fault_description'] if gen['operational_status'] == 'FAULT' else gen['service_type'],
-                    'Priority': 'CRITICAL' if gen['operational_status'] == 'FAULT' else 'HIGH',
-                    'Est. Revenue': format_currency(revenue_estimate / 3.75),
-                    'Contact': gen['customer_contact']
-                })
+            # Create dataframe and display
+            tickets_df = pd.DataFrame(work_tickets)
             
-            if opportunities_list:
-                opportunities_df = pd.DataFrame(opportunities_list)
-                st.dataframe(opportunities_df, use_container_width=True, hide_index=True)
+            # Style by priority
+            def color_priority(val):
+                if val == 'CRITICAL':
+                    return 'background-color: #ffebee; color: #c62828; font-weight: bold'
+                elif val == 'HIGH':
+                    return 'background-color: #fff3e0; color: #ef6c00; font-weight: bold'
+                return ''
+            
+            styled_df = tickets_df.style.applymap(color_priority, subset=['Priority'])
+            st.dataframe(styled_df, use_container_width=True, hide_index=True)
+            
+            # Ticket actions
+            st.markdown("### 🎯 Ticket Actions")
+            action_col1, action_col2, action_col3, action_col4 = st.columns(4)
+            
+            with action_col1:
+                if st.button("📞 Contact All Critical", use_container_width=True, type="primary"):
+                    st.success(f"📞 Contacting {critical_tickets} critical customers!")
+            
+            with action_col2:
+                if st.button("📅 Schedule All Service", use_container_width=True):
+                    st.success(f"📅 Scheduled service for {len(work_tickets)} tickets!")
+            
+            with action_col3:
+                if st.button("📧 Send All Quotes", use_container_width=True):
+                    st.success(f"📧 Quotes sent for {len(work_tickets)} opportunities!")
+            
+            with action_col4:
+                if st.button("📊 Export All Tickets", use_container_width=True):
+                    st.success("📊 Ticket report exported!")
         
-        # System status
-        if fault_count == 0 and opportunities == 0:
-            st.success("✅ All systems operating normally. No immediate actions required.")
+        else:
+            st.success("✅ No immediate tickets required - All systems operating normally")
         
     except Exception as e:
         st.error(f"Error loading dashboard: {str(e)}")
+        if st.button("🔄 Retry Loading Dashboard"):
+            st.rerun()
 
 # ========================================
 # MAIN APPLICATION
