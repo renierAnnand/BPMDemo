@@ -1,2036 +1,1041 @@
+"""
+Power System Manufacturer IoT Platform
+Work Management & Proactive Maintenance Platform
+Focus: Ticketing system, proactive customer contact, enhanced customer portal
+"""
+
 import streamlit as st
 import pandas as pd
+import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
+import json
+import os
 from datetime import datetime, timedelta
-import uuid
 import time
+import random
+from typing import Dict, List, Optional, Tuple
+from pathlib import Path
 
-# Configure the page
+# Page configuration
 st.set_page_config(
-    page_title="BPM System Demo",
-    page_icon="🔄",
+    page_title="Power System Work Management",
+    page_icon="⚡",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS for styling (enhanced for WMS look)
+# Enhanced CSS for work management focus
 st.markdown("""
 <style>
-    /* Main title styling */
-    .main-title {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        padding: 20px;
-        border-radius: 10px;
-        text-align: center;
-        font-weight: bold;
-        font-size: 28px;
-        margin-bottom: 30px;
+    .ticket-card {
+        background: linear-gradient(135deg, #d32f2f 0%, #f44336 100%);
+        padding: 1rem;
+        border-radius: 8px;
         color: white;
+        margin: 0.3rem 0;
+        border-left: 5px solid #b71c1c;
     }
-    
-    /* Process card styling */
-    .process-card {
-        background: white;
+    .service-due-card {
+        background: linear-gradient(135deg, #f57c00 0%, #ff9800 100%);
+        padding: 1rem;
+        border-radius: 8px;
+        color: white;
+        border-left: 5px solid #e65100;
+    }
+    .revenue-opportunity {
+        background: linear-gradient(135deg, #2e7d32 0%, #43a047 100%);
+        padding: 1rem;
+        border-radius: 8px;
+        color: white;
+        border-left: 5px solid #1b5e20;
+    }
+    .generator-running {
+        background: linear-gradient(135deg, #2e7d32 0%, #43a047 100%);
+        padding: 0.8rem;
+        border-radius: 6px;
+        color: white;
+        margin: 0.2rem 0;
+    }
+    .generator-fault {
+        background: linear-gradient(135deg, #d32f2f 0%, #f44336 100%);
+        padding: 0.8rem;
+        border-radius: 6px;
+        color: white;
+        margin: 0.2rem 0;
+    }
+    .generator-standby {
+        background: linear-gradient(135deg, #757575 0%, #9e9e9e 100%);
+        padding: 0.8rem;
+        border-radius: 6px;
+        color: white;
+        margin: 0.2rem 0;
+    }
+    .generator-maintenance {
+        background: linear-gradient(135deg, #f57c00 0%, #ff9800 100%);
+        padding: 0.8rem;
+        border-radius: 6px;
+        color: white;
+        margin: 0.2rem 0;
+    }
+    .header-card {
+        background: linear-gradient(135deg, #1a237e 0%, #283593 100%);
         padding: 1.5rem;
         border-radius: 10px;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        border: 1px solid #e2e8f0;
-        margin-bottom: 1rem;
-        height: 200px;
-        display: flex;
-        flex-direction: column;
-        justify-content: space-between;
-    }
-    
-    .card-title {
-        font-size: 1.2rem;
-        font-weight: 600;
-        color: #2d3748;
-        margin-bottom: 0.5rem;
-    }
-    
-    .card-description {
-        color: #718096;
-        font-size: 0.9rem;
-        margin-bottom: 1rem;
-    }
-    
-    /* Status badges */
-    .status-active {
-        background: #c6f6d5;
-        color: #22543d;
-        padding: 0.25rem 0.75rem;
-        border-radius: 15px;
-        font-size: 0.75rem;
-        font-weight: 500;
-        text-transform: uppercase;
-        display: inline-block;
-    }
-    
-    .status-beta {
-        background: #fed7d7;
-        color: #742a2a;
-        padding: 0.25rem 0.75rem;
-        border-radius: 15px;
-        font-size: 0.75rem;
-        font-weight: 500;
-        text-transform: uppercase;
-        display: inline-block;
-    }
-    
-    .status-new {
-        background: #bee3f8;
-        color: #2a4365;
-        padding: 0.25rem 0.75rem;
-        border-radius: 15px;
-        font-size: 0.75rem;
-        font-weight: 500;
-        text-transform: uppercase;
-        display: inline-block;
-    }
-    
-    /* Table styling for WMS */
-    .wms-header {
-        background-color: #4A90E2;
         color: white;
-        font-weight: bold;
-        padding: 12px;
-        display: flex;
         text-align: center;
-        border-radius: 5px 5px 0 0;
+        margin-bottom: 1.5rem;
     }
-    
-    .wms-row {
-        display: flex;
-        align-items: center;
-        padding: 10px;
-        border-bottom: 1px solid #ddd;
-        background-color: white;
-    }
-    
-    .wms-row:hover {
-        background-color: #f8f9fa;
-    }
-    
-    /* Status colors for tasks */
-    .status-pending {
-        background-color: #FFF3CD !important;
-        color: #856404 !important;
-        font-weight: bold !important;
-        padding: 5px 10px;
-        border-radius: 15px;
-        font-size: 0.8rem;
-    }
-    
-    .status-progress {
-        background-color: #D4EDDA !important;
-        color: #155724 !important;
-        font-weight: bold !important;
-        padding: 5px 10px;
-        border-radius: 15px;
-        font-size: 0.8rem;
-    }
-    
-    .status-completed {
-        background-color: #D1ECF1 !important;
-        color: #0C5460 !important;
-        font-weight: bold !important;
-        padding: 5px 10px;
-        border-radius: 15px;
-        font-size: 0.8rem;
-    }
-    
-    .status-rejected {
-        background-color: #F8D7DA !important;
-        color: #721C24 !important;
-        font-weight: bold !important;
-        padding: 5px 10px;
-        border-radius: 15px;
-        font-size: 0.8rem;
-    }
-    
-    /* Priority colors */
-    .priority-high {
-        color: #DC3545 !important;
-        font-weight: bold !important;
-    }
-    
-    .priority-medium {
-        color: #FFC107 !important;
-        font-weight: bold !important;
-    }
-    
-    .priority-low {
-        color: #28A745 !important;
-        font-weight: bold !important;
-    }
-    
-    /* Button styling */
-    .stButton > button {
-        width: 100%;
-        height: 35px;
-        border-radius: 50%;
-        border: none;
-        font-size: 16px;
-        margin: 2px;
-    }
-    
-    .stButton > button:hover {
-        transform: scale(1.1);
-        transition: transform 0.2s;
-    }
-    
-    /* Hide streamlit elements */
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    header {visibility: hidden;}
-    
-    /* Checklist styling */
-    .checklist-item {
-        padding: 8px;
-        margin: 4px 0;
-        border-left: 3px solid #e2e8f0;
-        background-color: #f8f9fa;
-        border-radius: 4px;
-    }
-    
-    .checklist-item.required {
-        border-left-color: #dc3545;
-    }
-    
-    .checklist-item.optional {
-        border-left-color: #17a2b8;
-    }
-    
-    .checklist-item.completed {
-        background-color: #d4edda;
-        border-left-color: #28a745;
-    }
-    
-    .checklist-progress {
-        background-color: #f8f9fa;
-        border-radius: 10px;
-        padding: 10px;
-        margin: 10px 0;
-    }
-    
-    .step-completion-disabled {
-        opacity: 0.6;
-        cursor: not-allowed;
-    }
-    
-    /* Template builder styling */
-    .template-step {
-        border: 1px solid #dee2e6;
+    .proactive-alert {
+        background: linear-gradient(135deg, #7b1fa2 0%, #9c27b0 100%);
+        padding: 1rem;
         border-radius: 8px;
-        padding: 15px;
-        margin: 10px 0;
-        background-color: #f8f9fa;
+        color: white;
+        border: 2px solid #4a148c;
+        animation: pulse 2s infinite;
     }
-    
-    .checklist-builder {
-        background-color: white;
-        border: 1px solid #e9ecef;
-        border-radius: 6px;
-        padding: 10px;
-        margin: 5px 0;
+    @keyframes pulse {
+        0% { border-color: #4a148c; }
+        50% { border-color: #9c27b0; }
+        100% { border-color: #4a148c; }
     }
 </style>
 """, unsafe_allow_html=True)
 
-# Initialize session state
-if 'processes' not in st.session_state:
-    st.session_state.processes = []
-if 'users' not in st.session_state:
-    st.session_state.users = {
-        'john_doe': {'name': 'John Doe', 'role': 'Business User', 'department': 'Marketing'},
-        'sarah_pmo': {'name': 'Sarah Johnson', 'role': 'PMO', 'department': 'PMO'},
-        'mike_tech': {'name': 'Mike Chen', 'role': 'Technical Lead', 'department': 'IT'},
-        'lisa_manager': {'name': 'Lisa Smith', 'role': 'Manager', 'department': 'IT'}
+# Configuration
+CONFIG = {
+    "company_name": "Power System Manufacturing",
+    "refresh_interval": 30,
+    "cache_ttl": 300,
+    "proactive_notification_hours": 72,
+    "currency": {
+        "symbol": "SAR",
+        "rate": 3.75,
+        "format": "SAR {:,.0f}"
+    },
+    "revenue_targets": {
+        "service_revenue_per_ticket": 850 * 3.75,
+        "parts_revenue_per_ticket": 450 * 3.75
     }
-if 'current_user' not in st.session_state:
-    st.session_state.current_user = 'john_doe'
-if 'show_details' not in st.session_state:
-    st.session_state.show_details = {}
-if 'task_actions' not in st.session_state:
-    st.session_state.task_actions = {}
-if 'process_templates' not in st.session_state:
-    st.session_state.process_templates = {}
-if 'checklist_progress' not in st.session_state:
-    st.session_state.checklist_progress = {}
+}
 
-# Sample data initialization with detailed task information and checklists
-if not st.session_state.processes:
-    sample_processes = [
-        {
-            'id': str(uuid.uuid4()),
-            'title': 'Customer Portal Enhancement',
-            'type': 'IT Project Request',
-            'submitter': 'john_doe',
-            'created_date': datetime.now() - timedelta(days=5),
-            'current_step': 'Technical Team Review',
-            'assigned_to': 'mike_tech',
-            'status': 'In Progress',
-            'sla_due': datetime.now() + timedelta(days=2),
-            'steps_completed': ['Business User Submission', 'PMO Review'],
-            'business_requirements': 'Enhance customer portal with new dashboard features',
-            'timeline': '3 months',
-            'budget': '$50,000',
-            'priority': 'High',
-            'description': 'Implement comprehensive customer portal enhancement with new dashboard features and improved user experience.',
-            'created_by': 'Marketing Manager',
-            'comments': 'Critical for Q3 customer satisfaction initiative.',
-            'checklists': {
-                'PMO Review': [
-                    {'name': 'Business Requirements Document uploaded', 'description': 'Complete BRD with all sections filled', 'required': True, 'completed': True},
-                    {'name': 'Stakeholder list confirmed', 'description': 'All stakeholders identified and contacted', 'required': True, 'completed': True},
-                    {'name': 'Budget estimate provided', 'description': 'Initial budget estimate documented', 'required': True, 'completed': True}
-                ],
-                'Technical Team Review': [
-                    {'name': 'Feasibility analysis completed', 'description': 'Technical feasibility assessment done', 'required': True, 'completed': False},
-                    {'name': 'Time and effort estimation added', 'description': 'Development timeline estimated', 'required': True, 'completed': False},
-                    {'name': 'Resource allocation reviewed', 'description': 'Team resources confirmed available', 'required': True, 'completed': False}
-                ]
+def format_currency(amount_usd):
+    """Convert USD to SAR and format properly."""
+    amount_sar = amount_usd * CONFIG["currency"]["rate"]
+    return CONFIG["currency"]["format"].format(amount_sar)
+
+DATA_DIR = Path("data")
+DATA_DIR.mkdir(exist_ok=True)
+
+# ========================================
+# DATA MODELS AND GENERATION
+# ========================================
+
+@st.cache_data(ttl=CONFIG["cache_ttl"])
+def load_base_generator_data() -> pd.DataFrame:
+    """Load base generator data with enhanced status tracking."""
+    generators_file = DATA_DIR / "generators.csv"
+    
+    if not generators_file.exists():
+        generators_data = generate_enhanced_generator_data()
+        df = pd.DataFrame(generators_data)
+        df.to_csv(generators_file, index=False)
+        return df
+    
+    df = pd.read_csv(generators_file)
+    
+    contact_columns = ['primary_contact_name', 'primary_contact_phone', 'primary_contact_email', 
+                      'alt_contact_name', 'alt_contact_phone', 'alt_contact_email']
+    
+    missing_columns = [col for col in contact_columns if col not in df.columns]
+    
+    if missing_columns:
+        contact_mapping = {
+            'King Faisal Medical City': {
+                'primary_contact_name': 'Ahmed Al-Rashid', 'primary_contact_phone': '+966-11-464-7272', 
+                'primary_contact_email': 'ahmed.alrashid@kfmc.sa',
+                'alt_contact_name': 'Fahad Al-Mahmoud', 'alt_contact_phone': '+966-11-464-7273', 
+                'alt_contact_email': 'fahad.mahmoud@kfmc.sa'
+            },
+            'Riyadh Mall Complex': {
+                'primary_contact_name': 'Mohammed Al-Saud', 'primary_contact_phone': '+966-11-234-5678', 
+                'primary_contact_email': 'mohammed.saud@riyadhmall.com',
+                'alt_contact_name': 'Khalid Operations', 'alt_contact_phone': '+966-11-234-5679', 
+                'alt_contact_email': 'ops@riyadhmall.com'
             }
-        },
-        {
-            'id': str(uuid.uuid4()),
-            'title': 'Data Analytics Platform',
-            'type': 'IT Project Request',
-            'submitter': 'john_doe',
-            'created_date': datetime.now() - timedelta(days=12),
-            'current_step': 'Final Approval',
-            'assigned_to': 'lisa_manager',
-            'status': 'Pending Approval',
-            'sla_due': datetime.now() + timedelta(days=1),
-            'steps_completed': ['Business User Submission', 'PMO Review', 'Technical Team Review', 'PMO Validation'],
-            'business_requirements': 'Implement comprehensive data analytics platform',
-            'timeline': '6 months',
-            'budget': '$120,000',
-            'priority': 'Medium',
-            'description': 'Deploy enterprise-wide data analytics platform for business intelligence and reporting.',
-            'created_by': 'IT Director',
-            'comments': 'Requires board approval due to budget size.',
-            'checklists': {
-                'Final Approval': [
-                    {'name': 'Budget approval from CFO', 'description': 'CFO sign-off on budget allocation', 'required': True, 'completed': False},
-                    {'name': 'Board resolution signed', 'description': 'Board approval documented', 'required': True, 'completed': False},
-                    {'name': 'Compliance review completed', 'description': 'Legal and compliance check done', 'required': False, 'completed': True}
-                ]
-            }
-        },
-        {
-            'id': str(uuid.uuid4()),
-            'title': 'Employee Onboarding System',
-            'type': 'HR Process',
-            'submitter': 'sarah_pmo',
-            'created_date': datetime.now() - timedelta(days=3),
-            'current_step': 'PMO Review',
-            'assigned_to': 'sarah_pmo',
-            'status': 'Pending',
-            'sla_due': datetime.now() + timedelta(days=4),
-            'steps_completed': ['Business User Submission'],
-            'business_requirements': 'Automate new employee onboarding process',
-            'timeline': '2 months',
-            'budget': '$25,000',
-            'priority': 'Medium',
-            'description': 'Streamline new hire onboarding with automated workflows and document collection.',
-            'created_by': 'HR Manager',
-            'comments': 'Part of digital transformation initiative.',
-            'checklists': {
-                'PMO Review': [
-                    {'name': 'HR requirements documented', 'description': 'All HR workflow requirements captured', 'required': True, 'completed': True},
-                    {'name': 'Integration points identified', 'description': 'HRIS and other system integrations mapped', 'required': True, 'completed': False},
-                    {'name': 'Compliance requirements reviewed', 'description': 'Legal compliance for employee data handling', 'required': True, 'completed': False}
-                ]
-            }
-        },
-        {
-            'id': str(uuid.uuid4()),
-            'title': 'Procurement Workflow Automation',
-            'type': 'Procurement Process',
-            'submitter': 'john_doe',
-            'created_date': datetime.now() - timedelta(days=1),
-            'current_step': 'Business User Submission',
-            'assigned_to': 'sarah_pmo',
-            'status': 'Completed',
-            'sla_due': datetime.now() + timedelta(days=5),
-            'steps_completed': ['Business User Submission', 'PMO Review', 'Technical Team Review', 'PMO Validation', 'Final Approval'],
-            'business_requirements': 'Automate procurement approval workflow',
-            'timeline': '4 months',
-            'budget': '$75,000',
-            'priority': 'High',
-            'description': 'Implement end-to-end procurement workflow automation with vendor integration.',
-            'created_by': 'Procurement Manager',
-            'comments': 'Successfully deployed and operational.',
-            'checklists': {}
         }
-    ]
-    st.session_state.processes.extend(sample_processes)
-
-# Initialize default process templates with checklists
-if not st.session_state.process_templates:
-    st.session_state.process_templates = {
-        'IT Project Request': {
-            'steps': [
-                {
-                    'name': 'PMO Review',
-                    'role': 'PMO',
-                    'sla_days': 3,
-                    'checklist': [
-                        {'name': 'Business Requirements Collection', 'description': 'Ensure business user provides detailed project description', 'required': True},
-                        {'name': 'Functional and Non-Functional Requirements', 'description': 'Clarify and document functional requirements', 'required': True},
-                        {'name': 'Stakeholder Identification', 'description': 'Confirm list of stakeholders and their roles', 'required': True},
-                        {'name': 'Timeline and Budget Estimates', 'description': 'Verify timeline and budget estimates provided', 'required': True},
-                        {'name': 'Risks and Constraints', 'description': 'Identify any risks that could impact the project', 'required': False}
-                    ]
-                },
-                {
-                    'name': 'Technical Team Review',
-                    'role': 'Technical Lead',
-                    'sla_days': 5,
-                    'checklist': [
-                        {'name': 'Feasibility Analysis', 'description': 'Assess technical feasibility of the project', 'required': True},
-                        {'name': 'Resource Estimation', 'description': 'Estimate development time and team resources', 'required': True},
-                        {'name': 'Architecture Review', 'description': 'Review technical architecture and approach', 'required': True},
-                        {'name': 'Integration Assessment', 'description': 'Assess integration requirements with existing systems', 'required': False}
-                    ]
-                },
-                {
-                    'name': 'PMO Validation',
-                    'role': 'PMO',
-                    'sla_days': 2,
-                    'checklist': [
-                        {'name': 'Business-Technical Alignment', 'description': 'Ensure technical solution aligns with business requirements', 'required': True},
-                        {'name': 'Timeline Validation', 'description': 'Validate realistic timeline based on technical assessment', 'required': True},
-                        {'name': 'Budget Reconciliation', 'description': 'Reconcile final budget with technical estimates', 'required': True}
-                    ]
-                },
-                {
-                    'name': 'Final Approval',
-                    'role': 'Manager',
-                    'sla_days': 3,
-                    'checklist': [
-                        {'name': 'Executive Review', 'description': 'Present project proposal to executive team', 'required': True},
-                        {'name': 'Budget Approval', 'description': 'Obtain budget approval from finance', 'required': True},
-                        {'name': 'Resource Commitment', 'description': 'Confirm resource allocation and availability', 'required': True}
-                    ]
-                }
-            ]
-        }
-    }
-
-# Helper functions
-def get_sla_status(due_date):
-    now = datetime.now()
-    if due_date < now:
-        return "Overdue", "🔴"
-    elif due_date < now + timedelta(days=1):
-        return "Critical", "🟡"
-    else:
-        return "On Track", "🟢"
-
-def get_process_steps():
-    return [
-        "Business User Submission",
-        "PMO Review", 
-        "Technical Team Review",
-        "PMO Validation",
-        "Final Approval"
-    ]
-
-def create_new_process(title, business_req, timeline, budget, priority, process_type='IT Project Request'):
-    process_id = str(uuid.uuid4())
-    
-    # Get checklist template if available
-    checklists = {}
-    if process_type in st.session_state.process_templates:
-        template = st.session_state.process_templates[process_type]
-        for step in template['steps']:
-            step_name = step['name']
-            checklists[step_name] = []
-            for item in step.get('checklist', []):
-                checklists[step_name].append({
-                    'name': item['name'],
-                    'description': item.get('description', ''),
-                    'required': item.get('required', True),
-                    'completed': False
-                })
-    
-    new_process = {
-        'id': process_id,
-        'title': title,
-        'type': process_type,
-        'submitter': st.session_state.current_user,
-        'created_date': datetime.now(),
-        'current_step': 'PMO Review',
-        'assigned_to': 'sarah_pmo',
-        'status': 'In Progress',
-        'sla_due': datetime.now() + timedelta(days=3),
-        'steps_completed': ['Business User Submission'],
-        'business_requirements': business_req,
-        'timeline': timeline,
-        'budget': budget,
-        'priority': priority,
-        'description': business_req,
-        'created_by': st.session_state.users[st.session_state.current_user]['name'],
-        'comments': 'Newly submitted request awaiting review.',
-        'checklists': checklists
-    }
-    st.session_state.processes.append(new_process)
-    return process_id
-
-# Sidebar navigation
-st.sidebar.title("🔄 BPM System Demo")
-
-# User selection
-st.sidebar.subheader("Current User")
-user_options = {k: f"{v['name']} ({v['role']})" for k, v in st.session_state.users.items()}
-selected_user = st.sidebar.selectbox("Select User", options=list(user_options.keys()), 
-                                    format_func=lambda x: user_options[x])
-st.session_state.current_user = selected_user
-
-# Navigation
-st.sidebar.subheader("Navigation")
-page = st.sidebar.radio("Select Page", [
-    "📝 Work Management System",
-    "🏢 SmartProcess Hub",
-    "👥 Manager's View", 
-    "📊 Management Dashboard",
-    "➕ New Process Request",
-    "🔧 Process Templates",
-    "👤 User Management",
-    "📈 Advanced Analytics",
-    "🔗 System Integrations",
-    "⚙️ SLA Configuration"
-])
-
-# Main content area
-current_user_info = st.session_state.users[st.session_state.current_user]
-st.title(f"Welcome, {current_user_info['name']}")
-st.caption(f"Role: {current_user_info['role']} | Department: {current_user_info['department']}")
-
-if page == "📝 Work Management System":
-    st.markdown('<div class="main-title">📋 Work Management System</div>', unsafe_allow_html=True)
-    
-    # Filter processes for current user or show all if manager
-    if current_user_info['role'] in ['Manager', 'PMO']:
-        user_processes = st.session_state.processes
-        st.info("👥 Showing all processes (Manager/PMO View)")
-    else:
-        user_processes = []
-        for process in st.session_state.processes:
-            if (process['assigned_to'] == st.session_state.current_user or 
-                process['submitter'] == st.session_state.current_user):
-                user_processes.append(process)
-        st.info("👤 Showing your assigned and submitted processes")
-    
-    if not user_processes:
-        st.info("No tasks assigned to you currently.")
-    else:
-        # Create WMS-style table header
-        st.markdown("""
-        <div class="wms-header">
-            <div style="flex: 0.5; border-right: 1px solid white; padding: 8px;">#</div>
-            <div style="flex: 3; border-right: 1px solid white; padding: 8px;">Task</div>
-            <div style="flex: 1.5; border-right: 1px solid white; padding: 8px;">Type</div>
-            <div style="flex: 1.5; border-right: 1px solid white; padding: 8px;">Status</div>
-            <div style="flex: 2; border-right: 1px solid white; padding: 8px;">Assigned to</div>
-            <div style="flex: 1; border-right: 1px solid white; padding: 8px;">Priority</div>
-            <div style="flex: 1.5; padding: 8px;">Action</div>
-        </div>
-        """, unsafe_allow_html=True)
         
-        # Display each row with WMS styling
-        for index, process in enumerate(user_processes, 1):
-            process_id = process['id']
-            task_name = process['title']
-            task_type = process['type']
-            status = process['status']
-            assigned_user = st.session_state.users.get(process['assigned_to'], {}).get('name', 'Unknown')
-            priority = process['priority']
+        default_contact = {
+            'primary_contact_name': 'Facility Manager', 'primary_contact_phone': '+966-11-000-0000', 
+            'primary_contact_email': 'contact@customer.sa',
+            'alt_contact_name': 'Operations Team', 'alt_contact_phone': '+966-11-000-0001', 
+            'alt_contact_email': 'ops@customer.sa'
+        }
+        
+        for col in contact_columns:
+            if col not in df.columns:
+                df[col] = df['customer_name'].apply(lambda x: contact_mapping.get(x, default_contact).get(col, default_contact[col]))
+        
+        df.to_csv(generators_file, index=False)
+    
+    if 'customer_contact' not in df.columns:
+        df['customer_contact'] = df['primary_contact_email']
+        df.to_csv(generators_file, index=False)
+    
+    if 'installation_date' not in df.columns:
+        df['installation_date'] = [
+            datetime.now() - timedelta(days=random.randint(365, 1825)) for _ in range(len(df))
+        ]
+        df.to_csv(generators_file, index=False)
+    
+    return df
+
+def generate_enhanced_generator_data() -> Dict:
+    """Generate enhanced generator data with comprehensive contact information."""
+    
+    customer_names = [
+        'King Faisal Medical City', 'Riyadh Mall Complex', 'SABIC Industrial', 'ARAMCO Office Tower',
+        'Al Rajhi Banking HQ', 'STC Data Center', 'NEOM Construction', 'Red Sea Project',
+        'Saudi Airlines Hub', 'KAUST Research', 'PIF Headquarters', 'Vision 2030 Center',
+        'Ministry Complex', 'Royal Hospital', 'Diplomatic Quarter', 'Financial District',
+        'Entertainment City', 'Sports Boulevard', 'Green Riyadh', 'ROSHN Development',
+        'ENOWA Energy Hub', 'THE LINE Project', 'Oxagon Port', 'Trojena Resort',
+        'Al-Ula Heritage', 'Qiddiya Venue', 'SPARK Sports', 'Mukaab Tower',
+        'Diriyah Gate', 'King Salman Park'
+    ]
+    
+    # Generate contact data
+    contact_data = []
+    for i in range(30):
+        contact_data.append({
+            'primary_contact_name': f'Contact-{i+1}', 
+            'primary_contact_phone': f'+966-11-{1000+i:04d}',
+            'primary_contact_email': f'contact{i+1}@customer.sa',
+            'alt_contact_name': f'Alt-Contact-{i+1}', 
+            'alt_contact_phone': f'+966-11-{2000+i:04d}',
+            'alt_contact_email': f'alt{i+1}@customer.sa'
+        })
+    
+    return {
+        'serial_number': [f'PS-{2020 + i//4}-{i+1:04d}' for i in range(30)],
+        'model_series': ([
+            'PS-2000 Series', 'PS-1500 Series', 'PS-1000 Series', 'PS-800 Series',
+            'PS-2500 Industrial', 'PS-2000 Commercial', 'PS-1800 Healthcare', 'PS-1200 Retail'
+        ] * 4)[:30],
+        'customer_name': customer_names,
+        'primary_contact_name': [contact['primary_contact_name'] for contact in contact_data],
+        'primary_contact_phone': [contact['primary_contact_phone'] for contact in contact_data],
+        'primary_contact_email': [contact['primary_contact_email'] for contact in contact_data],
+        'alt_contact_name': [contact['alt_contact_name'] for contact in contact_data],
+        'alt_contact_phone': [contact['alt_contact_phone'] for contact in contact_data],
+        'alt_contact_email': [contact['alt_contact_email'] for contact in contact_data],
+        'customer_contact': [contact['primary_contact_email'] for contact in contact_data],
+        'rated_kw': [
+            2000, 1500, 1000, 800, 2500, 2000, 1800, 1200,
+            1000, 750, 600, 400, 2200, 1800, 1400, 900,
+            650, 500, 350, 300, 2800, 2200, 1600, 1100,
+            850, 700, 450, 380, 320, 280
+        ],
+        'service_contract': [
+            'Premium Care', 'Basic Maintenance', 'Preventive Plus', 'No Contract'
+        ] * 8,
+        'next_service_hours': [random.randint(-200, 800) for _ in range(30)],
+        'total_runtime_hours': [random.randint(2000, 12000) for _ in range(30)],
+        'location_city': [
+            'Riyadh', 'Riyadh', 'Dammam', 'Riyadh', 'Riyadh', 'Jeddah', 'NEOM', 'Al-Ula',
+            'Riyadh', 'Thuwal', 'Riyadh', 'Riyadh', 'Riyadh', 'Riyadh', 'Riyadh', 'Riyadh',
+            'Riyadh', 'Riyadh', 'Riyadh', 'Riyadh', 'NEOM', 'NEOM', 'NEOM', 'Qiddiya',
+            'Al-Ula', 'Qiddiya', 'Riyadh', 'Riyadh', 'Diriyah', 'Riyadh'
+        ][:30],
+        'installation_date': [
+            datetime.now() - timedelta(days=random.randint(365, 1825)) for _ in range(30)
+        ]
+    }
+
+@st.cache_data(ttl=60)
+def generate_real_time_status(generators_df: pd.DataFrame) -> pd.DataFrame:
+    """Generate real-time operational status and sensor data."""
+    seed = int(time.time() // 60)
+    np.random.seed(seed)
+    
+    status_data = []
+    for _, gen in generators_df.iterrows():
+        try:
+            oil_pressure = np.random.uniform(20, 35)
+            coolant_temp = np.random.uniform(75, 110)
+            vibration = np.random.uniform(1.0, 6.0)
+            fuel_level = np.random.uniform(10, 95)
+            load_percent = np.random.uniform(0, 100)
             
-            # Determine status color class
-            status_class = {
-                "Pending": "status-pending",
-                "Pending Approval": "status-pending",
-                "In Progress": "status-progress", 
-                "Completed": "status-completed",
-                "Rejected": "status-rejected"
-            }.get(status, "")
+            has_fault = (oil_pressure < 25 or coolant_temp > 105 or vibration > 5.0 or fuel_level < 15)
+            is_needed = np.random.choice([True, False], p=[0.7, 0.3])
             
-            # Determine priority color
-            priority_color = {
-                "High": "#DC3545",
-                "Medium": "#FFC107",
-                "Low": "#28A745"
-            }.get(priority, "#000000")
+            if has_fault:
+                operational_status = "FAULT"
+                status_color = "fault"
+                fault_description = []
+                if oil_pressure < 25: 
+                    fault_description.append("Low oil pressure")
+                if coolant_temp > 105: 
+                    fault_description.append("High coolant temperature")
+                if vibration > 5.0: 
+                    fault_description.append("High vibration")
+                if fuel_level < 15: 
+                    fault_description.append("Low fuel")
+                fault_desc = ", ".join(fault_description)
+            elif is_needed and fuel_level > 20:
+                operational_status = "RUNNING"
+                status_color = "running"
+                fault_desc = ""
+            elif not is_needed:
+                operational_status = "STANDBY"
+                status_color = "standby"
+                fault_desc = "Not required - standby mode"
+            else:
+                operational_status = "MAINTENANCE"
+                status_color = "maintenance"
+                fault_desc = "Scheduled maintenance"
             
-            # Create columns for the row
-            cols = st.columns([0.5, 3, 1.5, 1.5, 2, 1, 1.5])
+            service_hours = gen.get('next_service_hours', 500)
+            runtime_hours = gen.get('total_runtime_hours', 5000)
             
-            with cols[0]:
-                st.markdown(f"<div style='text-align: center; padding: 10px; border-bottom: 1px solid #ddd;'>{index}</div>", unsafe_allow_html=True)
+            needs_proactive_contact = False
+            service_type = "Regular Maintenance"
             
-            with cols[1]:
-                st.markdown(f"<div style='text-align: center; padding: 10px; border-bottom: 1px solid #ddd;'>{task_name}</div>", unsafe_allow_html=True)
+            if service_hours < 0:
+                needs_proactive_contact = True
+                service_type = "Overdue Maintenance"
+            elif service_hours < 48:
+                needs_proactive_contact = True
+                service_type = "Urgent Service Due"
+            elif service_hours < CONFIG["proactive_notification_hours"]:
+                needs_proactive_contact = True
+                service_type = "Scheduled Service Due"
             
-            with cols[2]:
-                st.markdown(f"<div style='text-align: center; padding: 10px; border-bottom: 1px solid #ddd;'>{task_type}</div>", unsafe_allow_html=True)
+            customer_contact = gen.get('customer_contact', 'contact@customer.sa')
             
-            with cols[3]:
-                st.markdown(f"<div style='text-align: center; padding: 10px; border-bottom: 1px solid #ddd;'><span class='{status_class}'>{status}</span></div>", unsafe_allow_html=True)
+            status_data.append({
+                'serial_number': gen['serial_number'],
+                'customer_name': gen['customer_name'],
+                'customer_contact': customer_contact,
+                'operational_status': operational_status,
+                'status_color': status_color,
+                'fault_description': fault_desc,
+                'oil_pressure': round(oil_pressure, 1),
+                'coolant_temp': round(coolant_temp, 1),
+                'vibration': round(vibration, 2),
+                'fuel_level': round(fuel_level, 1),
+                'load_percent': round(load_percent, 1),
+                'next_service_hours': service_hours,
+                'service_type': service_type,
+                'runtime_hours': runtime_hours,
+                'needs_proactive_contact': needs_proactive_contact,
+                'revenue_opportunity': has_fault or needs_proactive_contact
+            })
+        except Exception:
+            continue
+    
+    return pd.DataFrame(status_data)
+
+def generate_customer_tickets(customer_status, customer_generators):
+    """Generate customer-facing tickets similar to work management system."""
+    tickets = []
+    
+    for _, gen_status in customer_status.iterrows():
+        try:
+            # Get generator info
+            gen_info = customer_generators[customer_generators['serial_number'] == gen_status['serial_number']].iloc[0]
             
-            with cols[4]:
-                st.markdown(f"<div style='text-align: center; padding: 10px; border-bottom: 1px solid #ddd;'>{assigned_user}</div>", unsafe_allow_html=True)
+            # Check if ticket should be generated
+            should_generate_ticket = False
+            ticket_type = ""
+            priority = ""
+            service_detail = ""
+            action_required = ""
             
-            with cols[5]:
-                st.markdown(f"<div style='text-align: center; padding: 10px; border-bottom: 1px solid #ddd; color: {priority_color}; font-weight: bold;'>{priority}</div>", unsafe_allow_html=True)
+            # Critical fault tickets
+            if gen_status['operational_status'] == 'FAULT':
+                should_generate_ticket = True
+                ticket_type = "🚨 FAULT RESPONSE"
+                priority = "CRITICAL"
+                service_detail = gen_status['fault_description']
+                action_required = "Contact immediately - Emergency service"
             
-            with cols[6]:
-                # Action buttons
-                btn_cols = st.columns(2)
-                with btn_cols[0]:
-                    if st.button("👁️", key=f"view_{process_id}", help="View Details"):
-                        st.session_state.show_details[process_id] = not st.session_state.show_details.get(process_id, False)
+            # Warning tickets for sensors approaching thresholds
+            elif (gen_status['oil_pressure'] < 28 or 
+                  gen_status['coolant_temp'] > 95 or 
+                  gen_status['vibration'] > 4.0 or 
+                  gen_status['fuel_level'] < 30):
                 
-                with btn_cols[1]:
-                    if st.button("✅", key=f"action_{process_id}", help="Take Action"):
-                        st.session_state.task_actions[process_id] = not st.session_state.task_actions.get(process_id, False)
+                should_generate_ticket = True
+                ticket_type = "⚠️ PREVENTIVE MAINTENANCE"
+                
+                warning_details = []
+                if gen_status['oil_pressure'] < 28:
+                    warning_details.append(f"Oil Pressure: {gen_status['oil_pressure']} PSI (Below normal)")
+                if gen_status['coolant_temp'] > 95:
+                    warning_details.append(f"Coolant Temp: {gen_status['coolant_temp']}°C (Above normal)")
+                if gen_status['vibration'] > 4.0:
+                    warning_details.append(f"Vibration: {gen_status['vibration']} mm/s (Above normal)")
+                if gen_status['fuel_level'] < 30:
+                    warning_details.append(f"Fuel Level: {gen_status['fuel_level']}% (Low)")
+                
+                service_detail = "; ".join(warning_details)
+                
+                # Determine priority based on severity
+                critical_count = sum([
+                    gen_status['oil_pressure'] < 25,
+                    gen_status['coolant_temp'] > 105,
+                    gen_status['vibration'] > 5.0,
+                    gen_status['fuel_level'] < 20
+                ])
+                
+                if critical_count > 0:
+                    priority = "HIGH"
+                    action_required = "Schedule maintenance within 48 hours"
+                else:
+                    priority = "MEDIUM"
+                    action_required = "Schedule maintenance within 1 week"
+            
+            # Service due tickets
+            elif gen_status.get('needs_proactive_contact', False):
+                should_generate_ticket = True
+                ticket_type = "📅 SCHEDULED MAINTENANCE"
+                priority = "MEDIUM"
+                service_detail = gen_status.get('service_type', 'Regular maintenance due')
+                action_required = "Schedule routine maintenance"
+            
+            if should_generate_ticket:
+                # Generate ticket ID based on type and generator
+                if priority == "CRITICAL":
+                    ticket_prefix = "CF"  # Critical Fault
+                elif priority == "HIGH":
+                    ticket_prefix = "HW"  # High Warning
+                else:
+                    ticket_prefix = "PM"  # Preventive Maintenance
+                
+                ticket_id = f"{ticket_prefix}-{random.randint(10000, 99999)}"
+                
+                # Calculate estimated revenue
+                if priority == "CRITICAL":
+                    estimated_revenue_usd = CONFIG['revenue_targets']['service_revenue_per_ticket'] / 3.75 * 1.5
+                else:
+                    estimated_revenue_usd = CONFIG['revenue_targets']['service_revenue_per_ticket'] / 3.75
+                
+                tickets.append({
+                    'ticket_id': ticket_id,
+                    'type': ticket_type,
+                    'generator': gen_status['serial_number'],
+                    'customer': gen_info['customer_name'],
+                    'primary_contact_name': gen_info.get('primary_contact_name', 'N/A'),
+                    'primary_contact_phone': gen_info.get('primary_contact_phone', 'N/A'),
+                    'primary_contact_email': gen_info.get('primary_contact_email', 'N/A'),
+                    'alt_contact_name': gen_info.get('alt_contact_name', 'N/A'),
+                    'alt_contact_phone': gen_info.get('alt_contact_phone', 'N/A'),
+                    'alt_contact_email': gen_info.get('alt_contact_email', 'N/A'),
+                    'service_detail': service_detail,
+                    'runtime_hours': gen_status.get('runtime_hours', 5000),
+                    'priority': priority,
+                    'revenue_sar': format_currency(estimated_revenue_usd),
+                    'action_required': action_required,
+                    'status': 'PENDING',
+                    'created_time': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    'model_series': gen_info['model_series'],
+                    'location': gen_info['location_city']
+                })
+                
+        except Exception:
+            continue
+    
+    return tickets
 
-    # Display task details if view button was clicked
-    for process_id in st.session_state.show_details:
-        if st.session_state.show_details[process_id]:
-            process = next((p for p in st.session_state.processes if p['id'] == process_id), None)
-            if process:
-                with st.expander(f"📋 Task Details - {process['title']}", expanded=True):
-                    col1, col2 = st.columns(2)
-                    
-                    with col1:
-                        st.write(f"**Description:** {process['description']}")
-                        st.write(f"**Due Date:** {process['sla_due'].strftime('%Y-%m-%d %H:%M')}")
-                        st.write(f"**Timeline:** {process['timeline']}")
-                        st.write(f"**Budget:** {process['budget']}")
-                    
-                    with col2:
-                        st.write(f"**Created By:** {process['created_by']}")
-                        st.write(f"**Current Step:** {process['current_step']}")
-                        st.write(f"**Created Date:** {process['created_date'].strftime('%Y-%m-%d')}")
-                        st.write(f"**Comments:** {process['comments']}")
-                    
-                    # Progress indicator
-                    st.subheader("Progress:")
-                    steps = get_process_steps()
-                    progress_cols = st.columns(len(steps))
-                    for i, step in enumerate(steps):
-                        with progress_cols[i]:
-                            if step in process['steps_completed']:
-                                st.markdown(f"<div style='text-align: center; color: green;'>✅<br>{step}</div>", unsafe_allow_html=True)
-                            elif step == process['current_step']:
-                                st.markdown(f"<div style='text-align: center; color: orange;'>🔄<br>{step}</div>", unsafe_allow_html=True)
-                            else:
-                                st.markdown(f"<div style='text-align: center; color: gray;'>⏳<br>{step}</div>", unsafe_allow_html=True)
-                    
-                    if st.button("Close Details", key=f"close_{process_id}"):
-                        st.session_state.show_details[process_id] = False
-                        st.rerun()
+# ========================================
+# AUTHENTICATION
+# ========================================
 
-    # Display action forms if action button was clicked
-    for process_id in st.session_state.task_actions:
-        if st.session_state.task_actions[process_id]:
-            process = next((p for p in st.session_state.processes if p['id'] == process_id), None)
-            if process:
-                with st.expander(f"⚡ Take Action on Task - {process['title']}", expanded=True):
-                    st.write(f"**Task:** {process['title']}")
-                    st.write(f"**Current Status:** {process['status']}")
-                    
-                    # Display checklist for current step if available
-                    current_step = process['current_step']
-                    if 'checklists' in process and current_step in process['checklists']:
-                        st.write(f"**{current_step} Checklist:**")
-                        
-                        checklist_items = process['checklists'][current_step]
-                        all_required_completed = True
-                        
-                        for i, item in enumerate(checklist_items):
-                            item_key = f"checklist_{process['id']}_{current_step}_{i}"
-                            
-                            # Display checklist item
-                            col_check, col_details = st.columns([1, 4])
-                            
-                            with col_check:
-                                item_completed = st.checkbox(
-                                    "",
-                                    value=item.get('completed', False),
-                                    key=item_key,
-                                    help=f"{'Required' if item['required'] else 'Optional'}"
-                                )
-                                # Update completion status
-                                item['completed'] = item_completed
-                            
-                            with col_details:
-                                required_indicator = "🔴" if item['required'] else "🔵"
-                                st.write(f"{required_indicator} **{item['name']}**")
-                                if item.get('description'):
-                                    st.caption(item['description'])
-                            
-                            # Check if required items are completed
-                            if item['required'] and not item_completed:
-                                all_required_completed = False
-                        
-                        # Completion status indicator
-                        if all_required_completed:
-                            st.success("✅ All required checklist items completed!")
-                        else:
-                            st.warning("⚠️ Complete all required checklist items to proceed")
-                    
-                    # Legacy action handling for processes without checklists
-                    if process['current_step'] == 'PMO Review' and current_user_info['role'] == 'PMO':
-                        if 'checklists' not in process or 'PMO Review' not in process['checklists']:
-                            # Legacy checklist for backward compatibility
-                            st.write("**PMO Review Checklist:**")
-                            req_collected = st.checkbox("✓ Business Requirements Collection", key=f"req_{process['id']}")
-                            func_req = st.checkbox("✓ Functional and Non-Functional Requirements", key=f"func_{process['id']}")
-                            stakeholders = st.checkbox("✓ Stakeholder Identification", key=f"stake_{process['id']}")
-                            timeline_check = st.checkbox("✓ Timeline and Budget Estimates", key=f"time_{process['id']}")
-                            risks = st.checkbox("✓ Risks and Constraints", key=f"risk_{process['id']}")
-                            all_required_completed = all([req_collected, func_req, stakeholders, timeline_check, risks])
-                        
-                        # Complete step button
-                        step_complete_disabled = not all_required_completed if ('checklists' in process and 'PMO Review' in process['checklists']) else not all([req_collected, func_req, stakeholders, timeline_check, risks]) if 'checklists' not in process or 'PMO Review' not in process['checklists'] else False
-                        
-                        if st.button(f"Complete PMO Review", key=f"complete_pmo_{process['id']}", disabled=step_complete_disabled):
-                            process['current_step'] = 'Technical Team Review'
-                            process['assigned_to'] = 'mike_tech'
-                            process['steps_completed'].append('PMO Review')
-                            process['sla_due'] = datetime.now() + timedelta(days=5)
-                            st.success("PMO Review completed! Task moved to Technical Team.")
-                            st.rerun()
-                    
-                    elif process['current_step'] == 'Technical Team Review' and current_user_info['role'] == 'Technical Lead':
-                        if 'checklists' not in process or 'Technical Team Review' not in process['checklists']:
-                            st.write("**Technical Review:**")
-                            feasibility = st.selectbox("Project Feasibility", 
-                                                     ["Select", "Feasible", "Needs Modification", "Not Feasible"],
-                                                     key=f"feas_{process['id']}")
-                            effort = st.text_input("Estimated Effort (hours)", key=f"effort_{process['id']}")
-                            all_required_completed = feasibility != "Select" and effort
-                        
-                        step_complete_disabled = not all_required_completed
-                        
-                        if st.button(f"Complete Technical Review", key=f"complete_tech_{process['id']}", disabled=step_complete_disabled):
-                            process['current_step'] = 'PMO Validation'
-                            process['assigned_to'] = 'sarah_pmo'
-                            process['steps_completed'].append('Technical Team Review')
-                            process['sla_due'] = datetime.now() + timedelta(days=2)
-                            st.success("Technical Review completed! Task moved back to PMO for validation.")
-                            st.rerun()
-                    
-                    elif process['current_step'] == 'PMO Validation' and current_user_info['role'] == 'PMO':
-                        if 'checklists' not in process or 'PMO Validation' not in process['checklists']:
-                            st.write("**PMO Validation:**")
-                            alignment = st.selectbox("Business-Technical Alignment", 
-                                                    ["Select", "Aligned", "Minor Adjustments Needed", "Major Revisions Required"],
-                                                    key=f"align_{process['id']}")
-                            all_required_completed = alignment != "Select"
-                        
-                        step_complete_disabled = not all_required_completed
-                        
-                        if st.button(f"Complete PMO Validation", key=f"complete_val_{process['id']}", disabled=step_complete_disabled):
-                            process['current_step'] = 'Final Approval'
-                            process['assigned_to'] = 'lisa_manager'
-                            process['steps_completed'].append('PMO Validation')
-                            process['sla_due'] = datetime.now() + timedelta(days=3)
-                            st.success("PMO Validation completed! Task moved to Final Approval.")
-                            st.rerun()
-                    
-                    elif process['current_step'] == 'Final Approval' and current_user_info['role'] == 'Manager':
-                        if 'checklists' not in process or 'Final Approval' not in process['checklists']:
-                            st.write("**Final Approval:**")
-                            decision = st.selectbox("Approval Decision", 
-                                                   ["Select", "Approved", "Approved with Conditions", "Rejected"],
-                                                   key=f"decision_{process['id']}")
-                            all_required_completed = decision != "Select"
-                        
-                        step_complete_disabled = not all_required_completed
-                        
-                        if st.button(f"Make Final Decision", key=f"complete_final_{process['id']}", disabled=step_complete_disabled):
-                            process['steps_completed'].append('Final Approval')
-                            process['status'] = 'Completed' if 'checklists' not in process or decision == 'Approved' else 'Rejected'
-                            process['current_step'] = 'Completed'
-                            st.success(f"Process completed!")
-                            st.rerun()
-                    
-                    # Generic completion button for steps with checklists
-                    elif 'checklists' in process and current_step in process['checklists']:
-                        step_complete_disabled = not all_required_completed
-                        
-                        if st.button(f"Complete {current_step}", key=f"complete_step_{process['id']}", disabled=step_complete_disabled):
-                            # Move to next step logic here
-                            steps = get_process_steps()
-                            current_index = steps.index(current_step) if current_step in steps else -1
-                            
-                            if current_index < len(steps) - 1:
-                                next_step = steps[current_index + 1]
-                                process['current_step'] = next_step
-                                process['steps_completed'].append(current_step)
-                                
-                                # Assign to appropriate user based on step
-                                if 'Technical' in next_step:
-                                    process['assigned_to'] = 'mike_tech'
-                                elif 'PMO' in next_step:
-                                    process['assigned_to'] = 'sarah_pmo'
-                                elif 'Final' in next_step or 'Manager' in next_step:
-                                    process['assigned_to'] = 'lisa_manager'
-                                
-                                process['sla_due'] = datetime.now() + timedelta(days=3)
-                                st.success(f"{current_step} completed! Task moved to {next_step}.")
-                            else:
-                                process['steps_completed'].append(current_step)
-                                process['status'] = 'Completed'
-                                process['current_step'] = 'Completed'
-                                st.success("Process completed successfully!")
-                            
-                            st.rerun()
-                    
-                    col1, col2 = st.columns(2)
-                    
-                    with col1:
-                        new_status = st.selectbox(
-                            "Update Status:",
-                            ["Pending", "In Progress", "Completed", "Rejected"],
-                            index=["Pending", "In Progress", "Completed", "Rejected"].index(process['status']) if process['status'] in ["Pending", "In Progress", "Completed", "Rejected"] else 0,
-                            key=f"status_{process_id}"
-                        )
-                    
-                    with col2:
-                        all_users = [user_info['name'] for user_info in st.session_state.users.values()]
-                        current_assignee = st.session_state.users.get(process['assigned_to'], {}).get('name', 'Unknown')
-                        new_assignee_name = st.selectbox(
-                            "Reassign to:",
-                            all_users,
-                            index=all_users.index(current_assignee) if current_assignee in all_users else 0,
-                            key=f"assignee_{process_id}"
-                        )
-                    
-                    action_comments = st.text_area(
-                        "Action Comments:",
-                        placeholder="Enter your comments about this action...",
-                        key=f"comments_{process_id}"
-                    )
-                    
-                    action_cols = st.columns(3)
-                    with action_cols[0]:
-                        if st.button("💾 Save Changes", key=f"save_{process_id}"):
-                            # Update process
-                            process['status'] = new_status
-                            process['comments'] = action_comments if action_comments else process['comments']
-                            
-                            # Find new assignee user ID
-                            for user_id, user_info in st.session_state.users.items():
-                                if user_info['name'] == new_assignee_name:
-                                    process['assigned_to'] = user_id
-                                    break
-                            
-                            st.success(f"✅ Task updated successfully!")
-                            st.session_state.task_actions[process_id] = False
-                            st.rerun()
-                    
-                    with action_cols[1]:
-                        if st.button("📧 Send Notification", key=f"notify_{process_id}"):
-                            st.info(f"📨 Notification sent to {new_assignee_name}")
-                    
-                    with action_cols[2]:
-                        if st.button("❌ Cancel", key=f"cancel_{process_id}"):
-                            st.session_state.task_actions[process_id] = False
-                            st.rerun()
-
-    # Summary statistics
-    st.subheader("📊 Task Summary")
-    col1, col2, col3, col4 = st.columns(4)
-
-    with col1:
-        st.metric("Total Tasks", len(user_processes))
-
-    with col2:
-        pending_count = len([p for p in user_processes if p['status'] in ['Pending', 'Pending Approval']])
-        st.metric("Pending", pending_count)
-
-    with col3:
-        completed_count = len([p for p in user_processes if p['status'] == 'Completed'])
-        st.metric("Completed", completed_count)
-
-    with col4:
-        high_priority_count = len([p for p in user_processes if p['priority'] == 'High'])
-        st.metric("High Priority", high_priority_count)
-
-elif page == "🏢 SmartProcess Hub":
+def authenticate_system():
+    """Authentication for work management system."""
     st.markdown("""
-    <div class="main-title">
-        <h1>🏢 SmartProcess Hub</h1>
-        <p>Select a process to get started</p>
+    <div class="header-card">
+        <h1>⚡ Power System Work Management</h1>
+        <h2>Proactive Maintenance & Customer Management Platform</h2>
+        <p>Advanced ticketing • Proactive notifications • Customer portal</p>
     </div>
     """, unsafe_allow_html=True)
     
-    # Available processes with status indicators
-    available_processes = [
-        {
-            "name": "New Hire Onboarding",
-            "icon": "👤",
-            "description": "Streamline employee onboarding with automated workflows and document collection.",
-            "status": "active",
-            "form_available": True
-        },
-        {
-            "name": "IT Project Request",
-            "icon": "💻",
-            "description": "Submit and track IT project requests with comprehensive approval workflow.",
-            "status": "active",
-            "form_available": True
-        },
-        {
-            "name": "Expense Report",
-            "icon": "💳",
-            "description": "Submit and manage expense claims with receipt attachment and approval flow.",
-            "status": "active",
-            "form_available": True
-        },
-        {
-            "name": "Leave Request",
-            "icon": "🏖️",
-            "description": "Request time off with calendar integration and manager approval workflow.",
-            "status": "active",
-            "form_available": True
-        },
-        {
-            "name": "Purchase Order Request",
-            "icon": "📋",
-            "description": "Submit and track purchase order requests with approval workflow.",
-            "status": "active",
-            "form_available": True
-        },
-        {
-            "name": "Asset Management",
-            "icon": "🖥️",
-            "description": "Track and manage company assets with assignment and maintenance schedules.",
-            "status": "active",
-            "form_available": True
-        },
-        {
-            "name": "Supplier Registration",
-            "icon": "🤝",
-            "description": "Onboard new suppliers with complete registration and verification process.",
-            "status": "new",
-            "form_available": False
-        },
-        {
-            "name": "Contract Review",
-            "icon": "📄",
-            "description": "Submit contracts for legal review with collaborative editing and approval.",
-            "status": "beta",
-            "form_available": False
-        },
-        {
-            "name": "Performance Review",
-            "icon": "⭐",
-            "description": "Conduct employee performance evaluations with 360-degree feedback collection.",
-            "status": "active",
-            "form_available": True
-        },
-        {
-            "name": "Customer/Vendor Creation",
-            "icon": "🏢",
-            "description": "Register new customers and vendors with comprehensive profile setup and verification.",
-            "status": "active",
-            "form_available": True
-        },
-        {
-            "name": "Invoice Processing",
-            "icon": "💰",
-            "description": "Automate invoice validation, approval, and payment processing.",
-            "status": "beta",
-            "form_available": False
-        },
-        {
-            "name": "Project Initiation",
-            "icon": "🚀",
-            "description": "Submit new project proposals with budget requests and approval routing.",
-            "status": "active",
-            "form_available": True
+    col1, col2, col3 = st.columns([1, 2, 1])
+    
+    with col2:
+        user_roles = {
+            "operations@powersystem": "🔧 Operations Manager - Work Orders & Tickets",
+            "service@powersystem": "⚡ Service Team - Field Operations",
+            "sales@powersystem": "💰 Sales Team - Revenue Opportunities",
+            "customer@powersystem": "🏢 Customer Portal - Generator Status"
         }
-    ]
-    
-    # Display process cards in a grid layout
-    cols_per_row = 3
-    for i in range(0, len(available_processes), cols_per_row):
-        cols = st.columns(cols_per_row)
         
-        for j in range(cols_per_row):
-            if i + j < len(available_processes):
-                process = available_processes[i + j]
+        selected_role = st.selectbox(
+            "Select your access level:",
+            options=list(user_roles.keys()),
+            format_func=lambda x: user_roles[x]
+        )
+        
+        if st.button("🚀 Access Work Management System", type="primary", use_container_width=True):
+            st.session_state.authenticated = True
+            st.session_state.user_role = selected_role
+            st.session_state.role_name = user_roles[selected_role]
+            st.rerun()
+
+# ========================================
+# ENHANCED CUSTOMER PORTAL
+# ========================================
+
+def show_enhanced_customer_portal():
+    """Enhanced customer portal with proactive fault alerts and detailed sensor monitoring."""
+    st.title("🏢 Customer Portal - Advanced Generator Monitoring")
+    st.markdown("### 🚨 Real-Time Alerts • 📊 Detailed Sensor Data • 🔍 Proactive Monitoring")
+    
+    try:
+        generators_df = load_base_generator_data()
+        status_df = generate_real_time_status(generators_df)
+        
+        if generators_df.empty:
+            st.error("No generator data available. Please contact support.")
+            return
+        
+        customers = generators_df['customer_name'].unique()
+        selected_customer = st.selectbox("Select Your Organization:", customers, key="customer_select")
+        
+        customer_generators = generators_df[generators_df['customer_name'] == selected_customer]
+        customer_status = status_df[status_df['customer_name'] == selected_customer]
+        
+        if customer_generators.empty:
+            st.error("No generators found for selected customer")
+            return
+        
+        st.markdown(f"### Welcome, {selected_customer}")
+        
+        # PROACTIVE ALERTS SECTION
+        st.subheader("🚨 Proactive Fault Alert System")
+        
+        fault_alerts = customer_status[customer_status['operational_status'] == 'FAULT']
+        warning_alerts = customer_status[
+            (customer_status['oil_pressure'] < 28) | 
+            (customer_status['coolant_temp'] > 95) | 
+            (customer_status['vibration'] > 4.0) | 
+            (customer_status['fuel_level'] < 30)
+        ]
+        
+        if not fault_alerts.empty:
+            for _, alert in fault_alerts.iterrows():
+                st.error(f"""
+                🚨 **CRITICAL FAULT DETECTED - {alert['serial_number']}**
+                - **Issue:** {alert['fault_description']}
+                - **Status:** Requires immediate attention
+                - **Auto-Response:** Emergency service has been notified
+                - **ETA:** Technician will contact you within 30 minutes
+                """)
+        
+        warning_alerts_filtered = warning_alerts[~warning_alerts['serial_number'].isin(fault_alerts['serial_number'])] if not fault_alerts.empty else warning_alerts
+        if not warning_alerts_filtered.empty:
+            for _, warning in warning_alerts_filtered.iterrows():
+                warning_details = []
+                if warning['oil_pressure'] < 28:
+                    warning_details.append(f"Oil Pressure: {warning['oil_pressure']} PSI (Below normal)")
+                if warning['coolant_temp'] > 95:
+                    warning_details.append(f"Coolant Temp: {warning['coolant_temp']}°C (Above normal)")
+                if warning['vibration'] > 4.0:
+                    warning_details.append(f"Vibration: {warning['vibration']} mm/s (Above normal)")
+                if warning['fuel_level'] < 30:
+                    warning_details.append(f"Fuel Level: {warning['fuel_level']}% (Low)")
                 
-                with cols[j]:
-                    # Determine status styling
-                    if process['status'] == 'active':
-                        status_html = '<span class="status-active">Active</span>'
-                    elif process['status'] == 'beta':
-                        status_html = '<span class="status-beta">Beta</span>'
-                    else:
-                        status_html = '<span class="status-new">New</span>'
-                    
-                    st.markdown(f"""
-                    <div class="process-card">
-                        <div>
-                            <div style="font-size: 2rem; margin-bottom: 0.5rem;">{process['icon']}</div>
-                            <div class="card-title">{process['name']}</div>
-                            <div class="card-description">{process['description']}</div>
-                        </div>
-                        <div>{status_html}</div>
-                    </div>
-                    """, unsafe_allow_html=True)
-                    
-                    if process['form_available']:
-                        if st.button(f"Open {process['name']}", key=f"open_{process['name'].replace(' ', '_').lower()}", use_container_width=True):
-                            st.success(f"✅ {process['name']} process opened!")
-                            st.info("In a full implementation, this would navigate to the specific process form.")
-                    else:
-                        st.button(f"Coming Soon - {process['name']}", key=f"coming_{process['name'].replace(' ', '_').lower()}", 
-                                use_container_width=True, disabled=True)
-    
-    # Process categories section
-    st.subheader("📂 Process Categories")
-    
-    category_cols = st.columns(4)
-    
-    with category_cols[0]:
-        st.markdown("""
-        **👥 HR & Admin**
-        - New Hire Onboarding
-        - Leave Request
-        - Performance Review
-        - Asset Management
-        """)
-    
-    with category_cols[1]:
-        st.markdown("""
-        **💼 Finance & Procurement**
-        - Purchase Order Request
-        - Expense Report
-        - Invoice Processing
-        - Contract Review
-        """)
-    
-    with category_cols[2]:
-        st.markdown("""
-        **🏢 Customer & Vendor**
-        - Customer/Vendor Creation
-        - Supplier Registration
-        - Contract Management
-        """)
-    
-    with category_cols[3]:
-        st.markdown("""
-        **🚀 Projects & IT**
-        - IT Project Request
-        - Project Initiation
-        - Change Management
-        """)
-
-elif page == "👥 Manager's View":
-    st.header("Manager's View")
-    
-    # Team workload overview
-    st.subheader("Team Workload Overview")
-    
-    # Create workload summary
-    workload_data = []
-    for user_id, user_info in st.session_state.users.items():
-        assigned_count = len([p for p in st.session_state.processes if p['assigned_to'] == user_id])
-        overdue_count = len([p for p in st.session_state.processes 
-                           if p['assigned_to'] == user_id and p['sla_due'] < datetime.now()])
-        workload_data.append({
-            'Employee': user_info['name'],
-            'Role': user_info['role'],
-            'Department': user_info['department'],
-            'Assigned Tasks': assigned_count,
-            'Overdue Tasks': overdue_count
-        })
-    
-    workload_df = pd.DataFrame(workload_data)
-    st.dataframe(workload_df, use_container_width=True)
-    
-    # SLA Compliance Overview
-    st.subheader("SLA Compliance Status")
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        # SLA status pie chart
-        sla_counts = {'On Track': 0, 'Critical': 0, 'Overdue': 0}
-        for process in st.session_state.processes:
-            if process['status'] not in ['Completed', 'Rejected']:
-                status, _ = get_sla_status(process['sla_due'])
-                sla_counts[status] += 1
+                st.warning(f"""
+                ⚠️ **SENSOR WARNING - {warning['serial_number']}**
+                - **Issues:** {', '.join(warning_details)}
+                - **Action:** Monitor closely, consider maintenance scheduling
+                - **Status:** Generator operational but requires attention
+                """)
         
-        fig_pie = px.pie(values=list(sla_counts.values()), 
-                       names=list(sla_counts.keys()),
-                       title="SLA Status Distribution",
-                       color_discrete_map={'On Track': 'green', 'Critical': 'yellow', 'Overdue': 'red'})
-        st.plotly_chart(fig_pie, use_container_width=True)
-    
-    with col2:
-        # Process status bar chart
-        status_counts = {}
-        for process in st.session_state.processes:
-            status = process['status']
-            status_counts[status] = status_counts.get(status, 0) + 1
+        if fault_alerts.empty and warning_alerts_filtered.empty:
+            st.success("""
+            ✅ **ALL GENERATORS OPERATING NORMALLY**
+            - No critical faults detected
+            - All sensors within normal operating ranges
+            - Proactive monitoring system active 24/7
+            """)
         
-        fig_bar = px.bar(x=list(status_counts.keys()), 
-                       y=list(status_counts.values()),
-                       title="Process Status Overview",
-                       labels={'x': 'Status', 'y': 'Count'})
-        st.plotly_chart(fig_bar, use_container_width=True)
-    
-    # Detailed process list
-    st.subheader("All Active Processes")
-    
-    process_data = []
-    for process in st.session_state.processes:
-        if process['status'] not in ['Completed', 'Rejected']:
-            assigned_user = st.session_state.users.get(process['assigned_to'], {}).get('name', 'Unknown')
-            sla_status, sla_icon = get_sla_status(process['sla_due'])
-            
-            process_data.append({
-                'Title': process['title'],
-                'Current Step': process['current_step'],
-                'Assigned To': assigned_user,
-                'Priority': process['priority'],
-                'SLA Status': f"{sla_icon} {sla_status}",
-                'Due Date': process['sla_due'].strftime('%Y-%m-%d'),
-                'Days Since Created': (datetime.now() - process['created_date']).days
-            })
-    
-    if process_data:
-        process_df = pd.DataFrame(process_data)
-        st.dataframe(process_df, use_container_width=True)
-    else:
-        st.info("No active processes found.")
-
-elif page == "📊 Management Dashboard":
-    st.header("Management Dashboard")
-    
-    # Key metrics
-    st.subheader("Key Performance Indicators")
-    
-    col1, col2, col3, col4 = st.columns(4)
-    
-    total_processes = len(st.session_state.processes)
-    active_processes = len([p for p in st.session_state.processes if p['status'] not in ['Completed', 'Rejected']])
-    completed_processes = len([p for p in st.session_state.processes if p['status'] == 'Completed'])
-    overdue_processes = len([p for p in st.session_state.processes 
-                           if p['status'] not in ['Completed', 'Rejected'] and p['sla_due'] < datetime.now()])
-    
-    with col1:
-        st.metric("Total Processes", total_processes)
-    with col2:
-        st.metric("Active Processes", active_processes)
-    with col3:
-        st.metric("Completed Processes", completed_processes)
-    with col4:
-        st.metric("Overdue Processes", overdue_processes, delta=f"-{overdue_processes}" if overdue_processes > 0 else None)
-    
-    # Process efficiency analysis
-    st.subheader("Process Efficiency Analysis")
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        # Average time per step
-        step_times = {}
-        steps = get_process_steps()
-        for step in steps:
-            step_times[step] = 2.5 + len(step) * 0.1  # Mock data
+        # Customer metrics
+        col1, col2, col3, col4, col5 = st.columns(5)
         
-        fig_steps = px.bar(x=list(step_times.keys()), 
-                          y=list(step_times.values()),
-                          title="Average Time per Process Step (Days)",
-                          labels={'x': 'Process Step', 'y': 'Average Days'})
-        fig_steps.update_xaxes(tickangle=45)
-        st.plotly_chart(fig_steps, use_container_width=True)
-    
-    with col2:
-        # Process timeline
-        timeline_data = []
-        for process in st.session_state.processes:
-            days_active = (datetime.now() - process['created_date']).days
-            timeline_data.append({
-                'Process': process['title'][:20] + '...' if len(process['title']) > 20 else process['title'],
-                'Days Active': days_active,
-                'Status': process['status'],
-                'Current Step': process['current_step']
-            })
-        
-        if timeline_data:
-            timeline_df = pd.DataFrame(timeline_data)
-            fig_timeline = px.scatter(timeline_df, x='Days Active', y='Process', 
-                                    color='Status', size='Days Active',
-                                    title="Process Timeline Overview",
-                                    hover_data=['Current Step'])
-            st.plotly_chart(fig_timeline, use_container_width=True)
-    
-    # SLA Performance
-    st.subheader("SLA Performance Trends")
-    
-    # Mock trend data
-    dates = [datetime.now() - timedelta(days=x) for x in range(30, 0, -1)]
-    sla_compliance = [85 + (i % 10) for i in range(30)]  # Mock data
-    
-    fig_trend = px.line(x=dates, y=sla_compliance, 
-                       title="SLA Compliance Trend (Last 30 Days)",
-                       labels={'x': 'Date', 'y': 'SLA Compliance %'})
-    fig_trend.add_hline(y=90, line_dash="dash", line_color="red", 
-                       annotation_text="Target: 90%")
-    st.plotly_chart(fig_trend, use_container_width=True)
-    
-    # Process bottlenecks
-    st.subheader("Process Bottleneck Analysis")
-    
-    bottleneck_data = {
-        'PMO Review': 45,
-        'Technical Team Review': 30,
-        'PMO Validation': 15,
-        'Final Approval': 10
-    }
-    
-    fig_bottleneck = px.funnel(y=list(bottleneck_data.keys()), 
-                              x=list(bottleneck_data.values()),
-                              title="Process Flow - Where Tasks Get Stuck (%)")
-    st.plotly_chart(fig_bottleneck, use_container_width=True)
-
-elif page == "➕ New Process Request":
-    st.header("New Process Request")
-    
-    with st.form("new_process_form"):
-        st.subheader("Request Details")
-        
-        col1, col2 = st.columns(2)
+        total_capacity = customer_generators['rated_kw'].sum()
+        running_count = len(customer_status[customer_status['operational_status'] == 'RUNNING'])
+        fault_count = len(customer_status[customer_status['operational_status'] == 'FAULT'])
+        standby_count = len(customer_status[customer_status['operational_status'] == 'STANDBY'])
+        avg_load = customer_status['load_percent'].mean() if not customer_status.empty else 0
         
         with col1:
-            # Process type selection
-            available_types = ['IT Project Request'] + [name for name in st.session_state.process_templates.keys() if name != 'IT Project Request']
-            process_type = st.selectbox("Process Type*", available_types)
+            st.metric("Total Capacity", f"{total_capacity:,.0f} kW")
+        with col2:
+            st.metric("🟢 Running", running_count, delta="Active")
+        with col3:
+            st.metric("🔴 Faults", fault_count, delta="⚠️ Attention" if fault_count > 0 else "✅ Normal")
+        with col4:
+            st.metric("⚪ Standby", standby_count, delta="Ready")
+        with col5:
+            st.metric("Average Load", f"{avg_load:.1f}%")
+        
+        # DETAILED SENSOR DATA SECTION
+        st.subheader("📊 Live Sensor Data & Monitoring")
+        
+        if not customer_status.empty:
+            for _, gen_status in customer_status.iterrows():
+                try:
+                    gen_info = customer_generators[customer_generators['serial_number'] == gen_status['serial_number']].iloc[0]
+                    
+                    with st.expander(f"🔍 {gen_status['serial_number']} - {gen_info['model_series']} - Detailed Sensor View", expanded=True):
+                        
+                        col1, col2 = st.columns([1, 2])
+                        
+                        with col1:
+                            if gen_status['operational_status'] == 'RUNNING':
+                                status_icon = "🟢 RUNNING"
+                                status_detail = f"Load: {gen_status['load_percent']}% | All systems normal"
+                            elif gen_status['operational_status'] == 'FAULT':
+                                status_icon = "🔴 FAULT"
+                                status_detail = f"⚠️ {gen_status['fault_description']}"
+                            elif gen_status['operational_status'] == 'STANDBY':
+                                status_icon = "⚪ STANDBY"
+                                status_detail = "Generator ready - Not currently needed"
+                            else:
+                                status_icon = "🟡 MAINTENANCE"
+                                status_detail = "Scheduled maintenance in progress"
+                            
+                            st.markdown(f"""
+                            **Generator Status:** {status_icon}  
+                            **Model:** {gen_info['model_series']}  
+                            **Capacity:** {gen_info['rated_kw']} kW  
+                            **Location:** {gen_info['location_city']}  
+                            **Runtime:** {gen_status.get('runtime_hours', 5000):,} hours  
+                            **Status Detail:** {status_detail}
+                            """)
+                        
+                        with col2:
+                            st.markdown("**🔍 Live Sensor Readings:**")
+                            
+                            sensor_col1, sensor_col2, sensor_col3, sensor_col4 = st.columns(4)
+                            
+                            with sensor_col1:
+                                oil_color = "🟢" if gen_status['oil_pressure'] >= 28 else "🟡" if gen_status['oil_pressure'] >= 25 else "🔴"
+                                oil_status = "Normal" if gen_status['oil_pressure'] >= 28 else "Warning" if gen_status['oil_pressure'] >= 25 else "Critical"
+                                st.metric("🛢️ Oil Pressure", f"{gen_status['oil_pressure']} PSI", delta=f"{oil_color} {oil_status}")
+                                st.caption("Normal: 28-35 PSI")
+                                if gen_status['oil_pressure'] < 28:
+                                    st.caption("⚠️ Below normal range")
+                            
+                            with sensor_col2:
+                                temp_color = "🟢" if gen_status['coolant_temp'] <= 95 else "🟡" if gen_status['coolant_temp'] <= 105 else "🔴"
+                                temp_status = "Normal" if gen_status['coolant_temp'] <= 95 else "Warning" if gen_status['coolant_temp'] <= 105 else "Critical"
+                                st.metric("🌡️ Coolant Temp", f"{gen_status['coolant_temp']}°C", delta=f"{temp_color} {temp_status}")
+                                st.caption("Normal: 75-95°C")
+                                if gen_status['coolant_temp'] > 95:
+                                    st.caption("⚠️ Above normal range")
+                            
+                            with sensor_col3:
+                                vib_color = "🟢" if gen_status['vibration'] <= 4.0 else "🟡" if gen_status['vibration'] <= 5.0 else "🔴"
+                                vib_status = "Normal" if gen_status['vibration'] <= 4.0 else "Warning" if gen_status['vibration'] <= 5.0 else "Critical"
+                                st.metric("🔧 Vibration", f"{gen_status['vibration']} mm/s", delta=f"{vib_color} {vib_status}")
+                                st.caption("Normal: 1.0-4.0 mm/s")
+                                if gen_status['vibration'] > 4.0:
+                                    st.caption("⚠️ Above normal range")
+                            
+                            with sensor_col4:
+                                fuel_color = "🟢" if gen_status['fuel_level'] >= 50 else "🟡" if gen_status['fuel_level'] >= 20 else "🔴"
+                                fuel_status = "Normal" if gen_status['fuel_level'] >= 50 else "Low" if gen_status['fuel_level'] >= 20 else "Critical"
+                                st.metric("⛽ Fuel Level", f"{gen_status['fuel_level']}%", delta=f"{fuel_color} {fuel_status}")
+                                st.caption("Normal: >50%")
+                                if gen_status['fuel_level'] < 50:
+                                    st.caption("⚠️ Consider refueling")
+                        
+                        # Sensor trend visualization
+                        st.markdown("**📈 24-Hour Sensor Trends:**")
+                        
+                        hours = list(range(24))
+                        np.random.seed(hash(gen_status['serial_number']) % (2**32 - 1))
+                        
+                        oil_trend = [max(20, min(35, gen_status['oil_pressure'] + np.random.normal(0, 1))) for _ in hours]
+                        temp_trend = [max(70, min(110, gen_status['coolant_temp'] + np.random.normal(0, 2))) for _ in hours]
+                        vib_trend = [max(0.5, min(6, gen_status['vibration'] + np.random.normal(0, 0.3))) for _ in hours]
+                        fuel_trend = [max(10, min(100, gen_status['fuel_level'] + np.random.normal(0, 1.5))) for _ in hours]
+                        
+                        trend_col1, trend_col2 = st.columns(2)
+                        
+                        with trend_col1:
+                            fig_oil = go.Figure()
+                            fig_oil.add_trace(go.Scatter(x=hours, y=oil_trend, mode='lines+markers', 
+                                                       name='Oil Pressure', line_color='blue'))
+                            fig_oil.add_hline(y=25, line_dash="dash", line_color="red", 
+                                            annotation_text="Min Threshold")
+                            fig_oil.update_layout(title="Oil Pressure (PSI)", height=200, 
+                                                showlegend=False, margin=dict(l=0, r=0, t=30, b=0))
+                            st.plotly_chart(fig_oil, use_container_width=True)
+                            
+                            fig_vib = go.Figure()
+                            fig_vib.add_trace(go.Scatter(x=hours, y=vib_trend, mode='lines+markers', 
+                                                       name='Vibration', line_color='purple'))
+                            fig_vib.add_hline(y=4.0, line_dash="dash", line_color="orange", 
+                                            annotation_text="Warning Level")
+                            fig_vib.update_layout(title="Vibration (mm/s)", height=200, 
+                                                showlegend=False, margin=dict(l=0, r=0, t=30, b=0))
+                            st.plotly_chart(fig_vib, use_container_width=True)
+                        
+                        with trend_col2:
+                            fig_temp = go.Figure()
+                            fig_temp.add_trace(go.Scatter(x=hours, y=temp_trend, mode='lines+markers', 
+                                                        name='Temperature', line_color='red'))
+                            fig_temp.add_hline(y=95, line_dash="dash", line_color="orange", 
+                                             annotation_text="Warning Level")
+                            fig_temp.update_layout(title="Coolant Temperature (°C)", height=200, 
+                                                 showlegend=False, margin=dict(l=0, r=0, t=30, b=0))
+                            st.plotly_chart(fig_temp, use_container_width=True)
+                            
+                            fig_fuel = go.Figure()
+                            fig_fuel.add_trace(go.Scatter(x=hours, y=fuel_trend, mode='lines+markers', 
+                                                        name='Fuel Level', line_color='green'))
+                            fig_fuel.add_hline(y=20, line_dash="dash", line_color="red", 
+                                             annotation_text="Low Fuel")
+                            fig_fuel.update_layout(title="Fuel Level (%)", height=200, 
+                                                 showlegend=False, margin=dict(l=0, r=0, t=30, b=0))
+                            st.plotly_chart(fig_fuel, use_container_width=True)
+                        
+                        st.markdown("**⚡ Quick Actions:**")
+                        action_col1, action_col2, action_col3 = st.columns(3)
+                        
+                        with action_col1:
+                            if st.button(f"📅 Schedule Service", key=f"schedule_{gen_status['serial_number']}", use_container_width=True):
+                                st.success(f"✅ Service scheduled for {gen_status['serial_number']}")
+                        
+                        with action_col2:
+                            if gen_status['operational_status'] == 'FAULT':
+                                if st.button(f"🚨 Emergency Service", key=f"emergency_{gen_status['serial_number']}", use_container_width=True, type="primary"):
+                                    st.success(f"🚨 Emergency service dispatched for {gen_status['serial_number']}")
+                            else:
+                                if st.button(f"📞 Contact Support", key=f"support_{gen_status['serial_number']}", use_container_width=True):
+                                    st.success(f"📞 Support contacted for {gen_status['serial_number']}")
+                        
+                        with action_col3:
+                            if st.button(f"📊 Full Report", key=f"report_{gen_status['serial_number']}", use_container_width=True):
+                                st.info(f"📊 Generating detailed report for {gen_status['serial_number']}")
+                    
+                    st.markdown("---")
+                except Exception:
+                    continue
+        
+        # ALERT SETTINGS & PREFERENCES
+        st.subheader("⚙️ Alert Settings & Preferences")
+        
+        with st.expander("🔔 Customize Your Alert Preferences", expanded=False):
+            col1, col2 = st.columns(2)
             
-            title = st.text_input("Request Title*", placeholder="Enter request title")
-            business_req = st.text_area("Business Requirements*", 
-                                      placeholder="Describe the business requirements and objectives")
-            timeline = st.selectbox("Estimated Timeline", 
-                                   ["1-2 months", "3-4 months", "5-6 months", "6+ months"])
+            with col1:
+                st.markdown("**📱 Notification Methods**")
+                email_alerts = st.checkbox("📧 Email Alerts", value=True)
+                sms_alerts = st.checkbox("📱 SMS Alerts", value=True)
+                phone_alerts = st.checkbox("📞 Emergency Phone Calls", value=True)
+                
+                st.markdown("**⏰ Alert Frequency**")
+                immediate_critical = st.checkbox("🚨 Immediate (Critical Faults)", value=True)
+                hourly_warnings = st.checkbox("⏰ Hourly (Warnings)", value=True)
+                daily_reports = st.checkbox("📅 Daily Status Reports", value=True)
+            
+            with col2:
+                st.markdown("**🎯 Custom Thresholds**")
+                oil_threshold = st.slider("Oil Pressure Alert (PSI)", 20, 30, 25)
+                temp_threshold = st.slider("Temperature Alert (°C)", 85, 100, 95)
+                vib_threshold = st.slider("Vibration Alert (mm/s)", 3.0, 5.0, 4.0, step=0.1)
+                fuel_threshold = st.slider("Fuel Level Alert (%)", 15, 40, 25)
+                
+                if st.button("💾 Save Alert Settings", use_container_width=True, type="primary"):
+                    st.success("✅ Alert preferences saved successfully!")
+        
+        # Enhanced Service & Support with Ticket Integration
+        st.subheader("🛠️ Service & Support Center")
+        
+        # Service statistics based on tickets
+        critical_tickets = len([t for t in customer_tickets if t['priority'] == 'CRITICAL'])
+        high_tickets = len([t for t in customer_tickets if t['priority'] == 'HIGH'])
+        total_tickets = len(customer_tickets)
+        
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            st.metric("🚨 Critical Tickets", critical_tickets, 
+                     delta="Immediate Action" if critical_tickets > 0 else "Normal")
         
         with col2:
-            budget = st.selectbox("Estimated Budget", 
-                                ["< $25,000", "$25,000 - $50,000", "$50,000 - $100,000", "> $100,000"])
-            priority = st.selectbox("Priority Level", ["Low", "Medium", "High", "Critical"])
-            
-            st.subheader("Success Criteria")
-            success_criteria = st.text_area("Define success criteria", 
-                                          placeholder="How will you measure project success?")
+            st.metric("⚠️ High Priority", high_tickets,
+                     delta="Schedule Soon" if high_tickets > 0 else "Normal")
         
-        # Show template preview if selected
-        if process_type in st.session_state.process_templates:
-            st.subheader(f"📋 {process_type} Process Preview")
-            template = st.session_state.process_templates[process_type]
-            
-            st.write("**This request will follow these steps:**")
-            for i, step in enumerate(template['steps'], 1):
-                step_name = step.get('name', f"Step {i}")
-                step_role = step.get('role', 'N/A')
-                step_sla = step.get('sla_days', step.get('sla', 3))
-                checklist_count = len(step.get('checklist', []))
-                
-                st.write(f"{i}. **{step_name}** (Assigned to: {step_role}, SLA: {step_sla} days)")
-                if checklist_count > 0:
-                    st.write(f"   📋 {checklist_count} checklist items to complete")
+        with col3:
+            st.metric("📋 Total Active", total_tickets)
         
-        st.subheader("Additional Information")
-        stakeholders = st.text_input("Key Stakeholders", 
-                                   placeholder="List primary stakeholders and their roles")
-        constraints = st.text_area("Known Constraints/Risks", 
-                                 placeholder="Any known limitations or risks")
-        
-        submitted = st.form_submit_button("Submit Process Request")
-        
-        if submitted:
-            if title and business_req:
-                process_id = create_new_process(title, business_req, timeline, budget, priority, process_type)
-                st.success(f"✅ {process_type} request submitted successfully! Process ID: {process_id[:8]}")
-                st.info("Your request has been assigned to the appropriate team for initial review.")
-                
-                # Show next steps based on template
-                if process_type in st.session_state.process_templates:
-                    template = st.session_state.process_templates[process_type]
-                    st.subheader("What happens next?")
-                    for i, step in enumerate(template['steps'], 1):
-                        step_name = step.get('name', f"Step {i}")
-                        step_role = step.get('role', 'N/A')
-                        st.write(f"{i}. **{step_name}** - The {step_role} team will review your submission")
-                else:
-                    # Default next steps
-                    st.subheader("What happens next?")
-                    st.write("1. **PMO Review** - The PMO team will review your submission and validate requirements")
-                    st.write("2. **Technical Assessment** - Technical team will evaluate feasibility and provide estimates")
-                    st.write("3. **PMO Validation** - PMO will ensure alignment between business and technical requirements")
-                    st.write("4. **Final Approval** - Management will make the final decision")
-                
-                st.write("You can track the progress of your request in the Work Management System.")
+        with col4:
+            if customer_tickets:
+                total_revenue = sum([float(t['revenue_sar'].replace('SAR ', '').replace(',', '')) for t in customer_tickets])
+                st.metric("💰 Est. Service Value", f"SAR {total_revenue:,.0f}")
             else:
-                st.error("Please fill in all required fields marked with *")
-
-elif page == "🔧 Process Templates":
-    st.header("Process Template Management")
-    
-    tab1, tab2, tab3 = st.tabs(["📋 Available Templates", "➕ Create Template", "📊 Template Analytics"])
-    
-    with tab1:
-        st.subheader("Available Process Templates")
-        
-        # Display process templates from session state
-        if st.session_state.process_templates:
-            for template_name, template_data in st.session_state.process_templates.items():
-                with st.expander(f"📄 {template_name} (Active)"):
-                    col1, col2, col3 = st.columns(3)
-                    with col1:
-                        st.metric("Steps", len(template_data['steps']))
-                    with col2:
-                        total_checklist_items = sum(len(step.get('checklist', [])) for step in template_data['steps'])
-                        st.metric("Total Checklist Items", total_checklist_items)
-                    with col3:
-                        avg_sla = sum(step.get('sla_days', step.get('sla', 3)) for step in template_data['steps']) / len(template_data['steps'])
-                        st.metric("Avg SLA (days)", f"{avg_sla:.1f}")
-                    
-                    # Show template description
-                    if template_data.get('description'):
-                        st.write(f"**Description:** {template_data['description']}")
-                    
-                    # Show steps with checklists
-                    st.write("**Process Flow:**")
-                    for i, step in enumerate(template_data['steps'], 1):
-                        step_name = step.get('name', f"Step {i}")
-                        step_role = step.get('role', 'N/A')
-                        step_sla = step.get('sla_days', step.get('sla', 3))
-                        
-                        st.write(f"**{i}. {step_name}** (Assigned to: {step_role}, SLA: {step_sla} days)")
-                        
-                        # Show checklist items
-                        checklist = step.get('checklist', [])
-                        if checklist:
-                            st.write("   **Checklist Items:**")
-                            for item in checklist:
-                                required_icon = "🔴" if item.get('required', True) else "🔵"
-                                st.write(f"   {required_icon} {item['name']}")
-                                if item.get('description'):
-                                    st.write(f"      _{item['description']}_")
-                        else:
-                            st.write("   _No checklist items defined_")
-                    
-                    action_cols = st.columns(2)
-                    with action_cols[0]:
-                        if st.button(f"Edit {template_name}", key=f"edit_{template_name}"):
-                            st.info("Template editing interface would open here")
-                    with action_cols[1]:
-                        if st.button(f"Duplicate {template_name}", key=f"duplicate_{template_name}"):
-                            st.info("Template duplication feature would create a copy")
-        
-        # Display default/legacy templates
-        legacy_templates = [
-            {"name": "HR Onboarding", "steps": 4, "avg_duration": "5 days", "usage": 12, "status": "Draft", "checklist_items": 8},
-            {"name": "Budget Approval", "steps": 3, "avg_duration": "3 days", "usage": 67, "status": "Active", "checklist_items": 5}
-        ]
-        
-        for template in legacy_templates:
-            with st.expander(f"📄 {template['name']} ({template['status']})"):
-                col1, col2, col3, col4 = st.columns(4)
-                with col1:
-                    st.metric("Steps", template['steps'])
-                with col2:
-                    st.metric("Avg Duration", template['avg_duration'])
-                with col3:
-                    st.metric("Monthly Usage", template['usage'])
-                with col4:
-                    st.metric("Checklist Items", template['checklist_items'])
-                
-                if st.button(f"Edit {template['name']}", key=f"edit_{template['name']}"):
-                    st.info("Template editing interface would open here")
-    
-    with tab2:
-        st.subheader("Create New Process Template")
-        
-        with st.form("new_template"):
-            template_name = st.text_input("Template Name")
-            template_desc = st.text_area("Description")
-            
-            st.write("**Define Process Steps:**")
-            num_steps = st.number_input("Number of Steps", min_value=1, max_value=10, value=3)
-            
-            # Initialize steps in session state for dynamic management
-            if f"template_steps_{template_name}" not in st.session_state:
-                st.session_state[f"template_steps_{template_name}"] = []
-            
-            steps = []
-            for i in range(num_steps):
-                st.write(f"---")
-                st.write(f"**Step {i+1}**")
-                
-                col1, col2, col3 = st.columns(3)
-                with col1:
-                    step_name = st.text_input(f"Step {i+1} Name", key=f"step_name_{i}")
-                with col2:
-                    step_role = st.selectbox(f"Assigned Role", ["PMO", "Manager", "Technical Lead", "Business User"], key=f"step_role_{i}")
-                with col3:
-                    step_sla = st.number_input(f"SLA (days)", min_value=1, max_value=30, value=3, key=f"step_sla_{i}")
-                
-                if step_name:
-                    step_data = {"name": step_name, "role": step_role, "sla": step_sla, "checklist": []}
-                    
-                    # Checklist Items Section
-                    st.write(f"**📋 Checklist Items for {step_name}**")
-                    
-                    # Initialize checklist in session state
-                    checklist_key = f"checklist_{template_name}_{i}"
-                    if checklist_key not in st.session_state:
-                        st.session_state[checklist_key] = []
-                    
-                    # Display existing checklist items
-                    for j, item in enumerate(st.session_state[checklist_key]):
-                        item_container = st.container()
-                        with item_container:
-                            item_cols = st.columns([3, 2, 1, 1, 1])
-                            
-                            with item_cols[0]:
-                                item['name'] = st.text_input(f"Item Name", value=item.get('name', ''), key=f"item_name_{i}_{j}")
-                            
-                            with item_cols[1]:
-                                item['description'] = st.text_input(f"Description", value=item.get('description', ''), key=f"item_desc_{i}_{j}")
-                            
-                            with item_cols[2]:
-                                item['required'] = st.checkbox("Required", value=item.get('required', True), key=f"item_req_{i}_{j}")
-                            
-                            with item_cols[3]:
-                                if st.button("↑", key=f"move_up_{i}_{j}", help="Move Up", disabled=(j == 0)):
-                                    if j > 0:
-                                        st.session_state[checklist_key][j], st.session_state[checklist_key][j-1] = st.session_state[checklist_key][j-1], st.session_state[checklist_key][j]
-                                        st.rerun()
-                                
-                                if st.button("↓", key=f"move_down_{i}_{j}", help="Move Down", disabled=(j == len(st.session_state[checklist_key]) - 1)):
-                                    if j < len(st.session_state[checklist_key]) - 1:
-                                        st.session_state[checklist_key][j], st.session_state[checklist_key][j+1] = st.session_state[checklist_key][j+1], st.session_state[checklist_key][j]
-                                        st.rerun()
-                            
-                            with item_cols[4]:
-                                if st.button("🗑️", key=f"delete_item_{i}_{j}", help="Delete Item"):
-                                    st.session_state[checklist_key].pop(j)
-                                    st.rerun()
-                    
-                    # Add new checklist item section
-                    with st.expander(f"➕ Add Checklist Item to {step_name}", expanded=False):
-                        new_item_cols = st.columns([3, 2, 1, 1])
-                        
-                        with new_item_cols[0]:
-                            new_item_name = st.text_input("New Item Name", key=f"new_item_name_{i}")
-                        
-                        with new_item_cols[1]:
-                            new_item_desc = st.text_input("Description (Optional)", key=f"new_item_desc_{i}")
-                        
-                        with new_item_cols[2]:
-                            new_item_required = st.checkbox("Required", value=True, key=f"new_item_req_{i}")
-                        
-                        with new_item_cols[3]:
-                            if st.button("Add Item", key=f"add_item_{i}"):
-                                if new_item_name:
-                                    new_item = {
-                                        'name': new_item_name,
-                                        'description': new_item_desc,
-                                        'required': new_item_required
-                                    }
-                                    st.session_state[checklist_key].append(new_item)
-                                    st.rerun()
-                                else:
-                                    st.error("Item name is required")
-                    
-                    # Add checklist to step data
-                    step_data["checklist"] = st.session_state[checklist_key].copy()
-                    steps.append(step_data)
-            
-            if st.form_submit_button("Create Template"):
-                if template_name and len(steps) > 0:
-                    # Save template to session state
-                    st.session_state.process_templates[template_name] = {
-                        'description': template_desc,
-                        'steps': steps
-                    }
-                    
-                    # Clear temporary session state
-                    for i in range(num_steps):
-                        checklist_key = f"checklist_{template_name}_{i}"
-                        if checklist_key in st.session_state:
-                            del st.session_state[checklist_key]
-                    
-                    st.success(f"✅ Template '{template_name}' created successfully with {len(steps)} steps!")
-                    
-                    # Show summary
-                    st.subheader("Template Summary")
-                    for step in steps:
-                        st.write(f"**{step['name']}** ({step['role']}) - {step['sla']} days SLA")
-                        if step['checklist']:
-                            for item in step['checklist']:
-                                required_icon = "🔴" if item['required'] else "🔵"
-                                st.write(f"  {required_icon} {item['name']}")
-                                if item['description']:
-                                    st.write(f"    _{item['description']}_")
-                        else:
-                            st.write("  _No checklist items defined_")
-                else:
-                    st.error("Please provide template name and at least one step")
-    
-    with tab3:
-        st.subheader("Template Performance Analytics")
-        
-        # Template usage chart with checklist data
-        template_data = pd.DataFrame({
-            'Template': ['IT Project', 'Procurement', 'HR Onboarding', 'Budget Approval'],
-            'Usage': [45, 23, 12, 67],
-            'Avg Completion Time': [12, 8, 5, 3],
-            'Success Rate': [85, 92, 98, 78],
-            'Checklist Items': [12, 8, 8, 5],
-            'Checklist Compliance': [94, 87, 99, 95]
-        })
-        
-        col1, col2 = st.columns(2)
-        with col1:
-            fig_usage = px.bar(template_data, x='Template', y='Usage', title="Template Usage (Monthly)")
-            st.plotly_chart(fig_usage, use_container_width=True)
-        
-        with col2:
-            fig_success = px.bar(template_data, x='Template', y='Success Rate', title="Template Success Rate (%)")
-            st.plotly_chart(fig_success, use_container_width=True)
-        
-        # Checklist Analytics
-        st.subheader("📋 Checklist Analytics")
-        
-        col1, col2 = st.columns(2)
-        with col1:
-            fig_checklist = px.bar(template_data, x='Template', y='Checklist Items', 
-                                 title="Checklist Items per Template")
-            st.plotly_chart(fig_checklist, use_container_width=True)
-        
-        with col2:
-            fig_compliance = px.bar(template_data, x='Template', y='Checklist Compliance',
-                                  title="Checklist Compliance Rate (%)")
-            fig_compliance.add_hline(y=90, line_dash="dash", line_color="red", annotation_text="Target: 90%")
-            st.plotly_chart(fig_compliance, use_container_width=True)
-        
-        # Checklist completion insights
-        st.subheader("🎯 Checklist Insights")
-        
-        insights_data = [
-            {"Metric": "Most Skipped Items", "Value": "Optional documentation reviews", "Impact": "Low"},
-            {"Metric": "Longest Completion Time", "Value": "Technical feasibility analysis", "Impact": "High"},
-            {"Metric": "Highest Failure Rate", "Value": "Budget approval documentation", "Impact": "Medium"},
-            {"Metric": "Best Compliance Step", "Value": "Stakeholder identification", "Impact": "Positive"}
-        ]
-        
-        insights_df = pd.DataFrame(insights_data)
-        st.dataframe(insights_df, use_container_width=True)
-        
-        # Template optimization recommendations
-        st.subheader("🔧 Optimization Recommendations")
-        st.write("1. **Reduce checklist items** in Procurement template - currently has highest item count vs. usage ratio")
-        st.write("2. **Add validation steps** to Budget Approval - lowest compliance rate detected")  
-        st.write("3. **Consider parallel reviews** for IT Project template - longest average completion time")
-        st.write("4. **Standardize descriptions** - 15% of checklist items lack clear descriptions")
-
-elif page == "👤 User Management":
-    st.header("User & Role Management")
-    
-    tab1, tab2, tab3 = st.tabs(["👥 Users", "🔐 Roles & Permissions", "📊 User Analytics"])
-    
-    with tab1:
-        st.subheader("User Management")
-        
-        # Add new user
-        with st.expander("➕ Add New User"):
-            with st.form("add_user"):
-                col1, col2 = st.columns(2)
-                with col1:
-                    new_name = st.text_input("Full Name")
-                    new_email = st.text_input("Email")
-                with col2:
-                    new_role = st.selectbox("Role", ["Business User", "PMO", "Technical Lead", "Manager"])
-                    new_dept = st.selectbox("Department", ["IT", "Marketing", "Finance", "HR", "Operations"])
-                
-                if st.form_submit_button("Add User"):
-                    if new_name and new_email:
-                        user_id = f"{new_name.lower().replace(' ', '_')}"
-                        st.session_state.users[user_id] = {
-                            'name': new_name,
-                            'role': new_role,
-                            'department': new_dept,
-                            'email': new_email
-                        }
-                        st.success(f"User {new_name} added successfully!")
-                        st.rerun()
-        
-        # User list
-        st.subheader("Current Users")
-        user_data = []
-        for user_id, user_info in st.session_state.users.items():
-            assigned_tasks = len([p for p in st.session_state.processes if p['assigned_to'] == user_id])
-            user_data.append({
-                'Name': user_info['name'],
-                'Role': user_info['role'],
-                'Department': user_info['department'],
-                'Active Tasks': assigned_tasks,
-                'Status': 'Active'
-            })
-        
-        user_df = pd.DataFrame(user_data)
-        st.dataframe(user_df, use_container_width=True)
-    
-    with tab2:
-        st.subheader("Role Configuration")
-        
-        roles_permissions = {
-            'Business User': ['Submit Requests', 'View Own Tasks', 'Update Task Status'],
-            'PMO': ['Review Requests', 'Assign Tasks', 'View All Tasks', 'Generate Reports'],
-            'Technical Lead': ['Technical Review', 'Resource Planning', 'View Team Tasks'],
-            'Manager': ['Final Approval', 'User Management', 'System Configuration', 'All Permissions']
-        }
-        
-        for role, permissions in roles_permissions.items():
-            with st.expander(f"🔐 {role} Permissions"):
-                for perm in permissions:
-                    st.write(f"✓ {perm}")
-    
-    with tab3:
-        st.subheader("User Activity Analytics")
-        
-        # User productivity metrics
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            # Tasks completed by user
-            user_completion = {}
-            for process in st.session_state.processes:
-                if process['status'] == 'Completed':
-                    assigned_user = st.session_state.users.get(process['assigned_to'], {}).get('name', 'Unknown')
-                    user_completion[assigned_user] = user_completion.get(assigned_user, 0) + 1
-            
-            if user_completion:
-                fig_completion = px.bar(x=list(user_completion.keys()), y=list(user_completion.values()),
-                                      title="Tasks Completed by User")
-                st.plotly_chart(fig_completion, use_container_width=True)
-        
-        with col2:
-            # Department workload
-            dept_workload = {}
-            for user_id, user_info in st.session_state.users.items():
-                dept = user_info['department']
-                assigned = len([p for p in st.session_state.processes if p['assigned_to'] == user_id])
-                dept_workload[dept] = dept_workload.get(dept, 0) + assigned
-            
-            fig_dept = px.pie(values=list(dept_workload.values()), names=list(dept_workload.keys()),
-                            title="Workload by Department")
-            st.plotly_chart(fig_dept, use_container_width=True)
-
-elif page == "📈 Advanced Analytics":
-    st.header("Advanced Process Analytics")
-    
-    tab1, tab2, tab3, tab4 = st.tabs(["🔍 Process Mining", "📊 Predictive Analytics", "🎯 Performance Benchmarks", "📋 Custom Reports"])
-    
-    with tab1:
-        st.subheader("Process Mining & Flow Analysis")
-        
-        # Process flow visualization
-        st.write("**Process Flow Efficiency:**")
-        
-        flow_data = {
-            'From': ['Start', 'PMO Review', 'Technical Review', 'PMO Validation', 'Final Approval'],
-            'To': ['PMO Review', 'Technical Review', 'PMO Validation', 'Final Approval', 'Completed'],
-            'Count': [100, 85, 78, 75, 70],
-            'Avg_Time': [0, 3.2, 5.1, 2.8, 1.5]
-        }
-        
-        # Sankey diagram would be ideal here
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            fig_flow = px.bar(x=flow_data['To'], y=flow_data['Count'], 
-                            title="Process Step Completion Rates")
-            st.plotly_chart(fig_flow, use_container_width=True)
-        
-        with col2:
-            fig_time = px.bar(x=flow_data['To'], y=flow_data['Avg_Time'],
-                            title="Average Time per Step (Days)")
-            st.plotly_chart(fig_time, use_container_width=True)
-        
-        # Bottleneck analysis
-        st.subheader("Bottleneck Identification")
-        bottlenecks = [
-            {"Step": "Technical Review", "Avg Delay": "2.3 days", "Frequency": "45%", "Impact": "High"},
-            {"Step": "PMO Review", "Avg Delay": "1.8 days", "Frequency": "30%", "Impact": "Medium"},
-            {"Step": "Final Approval", "Avg Delay": "1.2 days", "Frequency": "25%", "Impact": "Low"}
-        ]
-        
-        bottleneck_df = pd.DataFrame(bottlenecks)
-        st.dataframe(bottleneck_df, use_container_width=True)
-    
-    with tab2:
-        st.subheader("Predictive Analytics")
-        
-        # Predicted completion times
-        st.write("**Completion Time Predictions:**")
-        
-        predictions = []
-        for process in st.session_state.processes:
-            if process['status'] not in ['Completed', 'Rejected']:
-                remaining_steps = len(get_process_steps()) - len(process['steps_completed'])
-                predicted_days = remaining_steps * 3.5  # Mock calculation
-                
-                predictions.append({
-                    'Process': process['title'],
-                    'Current Step': process['current_step'],
-                    'Remaining Steps': remaining_steps,
-                    'Predicted Completion': (datetime.now() + timedelta(days=predicted_days)).strftime('%Y-%m-%d'),
-                    'Confidence': f"{85 + (remaining_steps * 2)}%"
-                })
-        
-        if predictions:
-            pred_df = pd.DataFrame(predictions)
-            st.dataframe(pred_df, use_container_width=True)
-        
-        # Risk prediction
-        st.subheader("Risk Assessment")
-        st.warning("🚨 High Risk: 2 processes predicted to exceed SLA")
-        st.info("⚠️ Medium Risk: 3 processes approaching SLA limits")
-        st.success("✅ Low Risk: 5 processes on track")
-    
-    with tab3:
-        st.subheader("Performance Benchmarks")
-        
-        # Industry benchmarks comparison
-        benchmark_data = {
-            'Metric': ['Avg Process Time', 'SLA Compliance', 'First-Pass Success', 'Customer Satisfaction'],
-            'Our Performance': [8.5, 87, 76, 4.2],
-            'Industry Average': [12.3, 82, 68, 3.8],
-            'Best in Class': [6.2, 95, 89, 4.7],
-            'Unit': ['Days', '%', '%', '/5']
-        }
-        
-        benchmark_df = pd.DataFrame(benchmark_data)
-        
-        # Create comparison chart
-        fig_benchmark = go.Figure(data=[
-            go.Bar(name='Our Performance', x=benchmark_data['Metric'], y=benchmark_data['Our Performance']),
-            go.Bar(name='Industry Average', x=benchmark_data['Metric'], y=benchmark_data['Industry Average']),
-            go.Bar(name='Best in Class', x=benchmark_data['Metric'], y=benchmark_data['Best in Class'])
-        ])
-        fig_benchmark.update_layout(title="Performance Benchmarking", barmode='group')
-        st.plotly_chart(fig_benchmark, use_container_width=True)
-        
-        # Improvement recommendations
-        st.subheader("Improvement Recommendations")
-        st.write("🎯 **Focus Areas for Improvement:**")
-        st.write("1. **Technical Review Step** - Consider parallel reviews to reduce cycle time")
-        st.write("2. **SLA Compliance** - Implement automated escalation at 80% of SLA time")
-        st.write("3. **First-Pass Success** - Add validation checkpoints in PMO review")
-    
-    with tab4:
-        st.subheader("Custom Report Builder")
-        
-        col1, col2 = st.columns([1, 2])
-        
-        with col1:
-            st.write("**Report Configuration:**")
-            report_type = st.selectbox("Report Type", [
-                "Process Performance",
-                "User Productivity", 
-                "SLA Compliance",
-                "Department Analysis",
-                "Custom Query"
-            ])
-            
-            date_range = st.date_input("Date Range", value=[datetime.now() - timedelta(days=30), datetime.now()])
-            
-            filters = st.multiselect("Filters", [
-                "Department", "Process Type", "Priority", "Status", "Assigned User"
-            ])
-            
-            if st.button("Generate Report"):
-                st.success("Report generated successfully!")
-        
-        with col2:
-            st.write("**Sample Report Output:**")
-            
-            # Mock report data
-            report_data = {
-                'Process ID': ['PR001', 'PR002', 'PR003', 'PR004'],
-                'Title': ['Customer Portal', 'Data Analytics', 'Mobile App', 'Security Audit'],
-                'Duration': [12, 8, 15, 6],
-                'SLA Status': ['Met', 'Exceeded', 'Met', 'Met'],
-                'Rating': [4.2, 4.8, 3.9, 4.5]
-            }
-            
-            report_df = pd.DataFrame(report_data)
-            st.dataframe(report_df, use_container_width=True)
-            
-            # Export options
-            st.download_button(
-                label="📥 Export to CSV",
-                data=report_df.to_csv(index=False),
-                file_name="bpm_report.csv",
-                mime="text/csv"
-            )
-
-elif page == "🔗 System Integrations":
-    st.header("System Integration Management")
-    
-    tab1, tab2, tab3 = st.tabs(["🔌 Active Integrations", "➕ Add Integration", "📊 Integration Health"])
-    
-    with tab1:
-        st.subheader("Current System Integrations")
-        
-        integrations = [
-            {"System": "Salesforce CRM", "Type": "Customer Data", "Status": "🟢 Active", "Last Sync": "2 min ago", "Records": "1,247"},
-            {"System": "SAP ERP", "Type": "Financial Data", "Status": "🟡 Warning", "Last Sync": "15 min ago", "Records": "892"},
-            {"System": "Jira", "Type": "Project Management", "Status": "🟢 Active", "Last Sync": "1 min ago", "Records": "156"},
-            {"System": "Office 365", "Type": "Email/Calendar", "Status": "🔴 Error", "Last Sync": "2 hours ago", "Records": "0"}
-        ]
-        
-        for integration in integrations:
-            with st.expander(f"{integration['System']} - {integration['Status']}"):
-                col1, col2, col3 = st.columns(3)
-                with col1:
-                    st.write(f"**Type:** {integration['Type']}")
-                    st.write(f"**Status:** {integration['Status']}")
-                with col2:
-                    st.write(f"**Last Sync:** {integration['Last Sync']}")
-                    st.write(f"**Records:** {integration['Records']}")
-                with col3:
-                    if st.button(f"Test Connection", key=f"test_{integration['System']}"):
-                        st.success("Connection test successful!")
-                    if st.button(f"Force Sync", key=f"sync_{integration['System']}"):
-                        st.info("Synchronization initiated...")
-    
-    with tab2:
-        st.subheader("Add New Integration")
-        
-        with st.form("new_integration"):
-            system_name = st.text_input("System Name")
-            system_type = st.selectbox("Integration Type", [
-                "CRM", "ERP", "Project Management", "HR System", "Email", "Database", "Custom API"
-            ])
-            
-            st.write("**Connection Details:**")
-            col1, col2 = st.columns(2)
-            with col1:
-                endpoint = st.text_input("API Endpoint")
-                auth_type = st.selectbox("Authentication", ["API Key", "OAuth", "Basic Auth", "Token"])
-            with col2:
-                sync_frequency = st.selectbox("Sync Frequency", ["Real-time", "Every 5 min", "Hourly", "Daily"])
-                data_direction = st.selectbox("Data Flow", ["Bidirectional", "Import Only", "Export Only"])
-            
-            if st.form_submit_button("Add Integration"):
-                if system_name and endpoint:
-                    st.success(f"Integration with {system_name} configured successfully!")
-                else:
-                    st.error("Please fill in required fields")
-    
-    with tab3:
-        st.subheader("Integration Health Dashboard")
-        
-        # Integration performance metrics
-        col1, col2, col3, col4 = st.columns(4)
-        with col1:
-            st.metric("Active Integrations", "4")
-        with col2:
-            st.metric("Sync Success Rate", "96.7%", "↗️ +2.1%")
-        with col3:
-            st.metric("Avg Response Time", "145ms", "↘️ -23ms")
-        with col4:
-            st.metric("Data Records/Hour", "12.4K", "↗️ +1.2K")
-        
-        # Sync status over time
-        dates = pd.date_range(start=datetime.now()-timedelta(days=7), end=datetime.now(), freq='H')
-        sync_success = [95 + (i % 10) for i in range(len(dates))]
-        
-        fig_sync = px.line(x=dates, y=sync_success, title="Integration Sync Success Rate (7 Days)")
-        fig_sync.add_hline(y=95, line_dash="dash", line_color="red", annotation_text="SLA: 95%")
-        st.plotly_chart(fig_sync, use_container_width=True)
-
-elif page == "⚙️ SLA Configuration":
-    st.header("SLA Configuration & Management")
-    
-    tab1, tab2, tab3 = st.tabs(["📋 SLA Rules", "🚨 Escalation Matrix", "📊 SLA Performance"])
-    
-    with tab1:
-        st.subheader("SLA Rule Configuration")
-        
-        # Current SLA rules
-        sla_rules = [
-            {"Process": "IT Project Request", "Step": "PMO Review", "SLA": "3 days", "Warning": "2 days", "Critical": "2.5 days"},
-            {"Process": "IT Project Request", "Step": "Technical Review", "SLA": "5 days", "Warning": "3 days", "Critical": "4 days"},
-            {"Process": "IT Project Request", "Step": "PMO Validation", "SLA": "2 days", "Warning": "1 day", "Critical": "1.5 days"},
-            {"Process": "IT Project Request", "Step": "Final Approval", "SLA": "3 days", "Warning": "2 days", "Critical": "2.5 days"},
-            {"Process": "Procurement", "Step": "Vendor Review", "SLA": "2 days", "Warning": "1 day", "Critical": "1.5 days"}
-        ]
-        
-        sla_df = pd.DataFrame(sla_rules)
-        edited_df = st.data_editor(sla_df, use_container_width=True)
-        
-        if st.button("Save SLA Configuration"):
-            st.success("SLA rules updated successfully!")
-        
-        # Add new SLA rule
-        with st.expander("➕ Add New SLA Rule"):
-            with st.form("new_sla"):
-                col1, col2 = st.columns(2)
-                with col1:
-                    new_process = st.text_input("Process Type")
-                    new_step = st.text_input("Process Step")
-                with col2:
-                    new_sla = st.number_input("SLA (days)", min_value=1, max_value=30, value=3)
-                    new_warning = st.number_input("Warning (days)", min_value=1, max_value=30, value=2)
-                
-                if st.form_submit_button("Add SLA Rule"):
-                    if new_process and new_step:
-                        st.success(f"SLA rule added for {new_process} - {new_step}")
-                    else:
-                        st.error("Please fill in all required fields")
-    
-    with tab2:
-        st.subheader("Escalation Matrix")
-        
-        # Escalation rules
-        escalation_data = [
-            {"Trigger": "80% of SLA elapsed", "Action": "Email notification to assignee", "Recipients": "Task Owner"},
-            {"Trigger": "90% of SLA elapsed", "Action": "Email notification to manager", "Recipients": "Manager + Task Owner"},
-            {"Trigger": "SLA exceeded", "Action": "Escalate to department head", "Recipients": "Dept Head + Manager + Task Owner"},
-            {"Trigger": "24 hours overdue", "Action": "Executive notification", "Recipients": "Executive Team"}
-        ]
-        
-        escalation_df = pd.DataFrame(escalation_data)
-        st.dataframe(escalation_df, use_container_width=True)
-        
-        # Escalation configuration
-        st.subheader("Configure Escalation Rules")
-        
-        with st.form("escalation_config"):
-            col1, col2 = st.columns(2)
-            with col1:
-                st.write("**Email Notifications:**")
-                enable_notifications = st.checkbox("Enable email notifications", value=True)
-                notification_frequency = st.selectbox("Notification frequency", ["Immediate", "Daily digest", "Hourly"])
-            
-            with col2:
-                st.write("**Escalation Thresholds:**")
-                warning_threshold = st.slider("Warning threshold (%)", 0, 100, 80)
-                critical_threshold = st.slider("Critical threshold (%)", 0, 100, 90)
-            
-            auto_escalation = st.checkbox("Enable automatic escalation", value=True)
-            
-            if st.form_submit_button("Save Escalation Settings"):
-                st.success("Escalation settings updated successfully!")
-    
-    with tab3:
-        st.subheader("SLA Performance Dashboard")
-        
-        # SLA metrics
-        col1, col2, col3, col4 = st.columns(4)
-        
-        # Calculate SLA metrics
-        total_active = len([p for p in st.session_state.processes if p['status'] not in ['Completed', 'Rejected']])
-        on_track = len([p for p in st.session_state.processes 
-                       if p['status'] not in ['Completed', 'Rejected'] and p['sla_due'] > datetime.now() + timedelta(days=1)])
-        critical = len([p for p in st.session_state.processes 
-                       if p['status'] not in ['Completed', 'Rejected'] and p['sla_due'] <= datetime.now() + timedelta(days=1) and p['sla_due'] > datetime.now()])
-        overdue = len([p for p in st.session_state.processes 
-                      if p['status'] not in ['Completed', 'Rejected'] and p['sla_due'] <= datetime.now()])
-        
-        with col1:
-            st.metric("Total Active", total_active)
-        with col2:
-            st.metric("On Track", on_track, f"{(on_track/total_active*100):.1f}%" if total_active > 0 else "0%")
-        with col3:
-            st.metric("Critical", critical, f"{(critical/total_active*100):.1f}%" if total_active > 0 else "0%")
-        with col4:
-            st.metric("Overdue", overdue, f"-{(overdue/total_active*100):.1f}%" if total_active > 0 else "0%")
-        
-        # SLA compliance by process type
-        st.subheader("SLA Compliance by Process Type")
-        
-        process_sla_data = []
-        process_types = set([p['type'] for p in st.session_state.processes])
-        
-        for ptype in process_types:
-            type_processes = [p for p in st.session_state.processes if p['type'] == ptype and p['status'] not in ['Completed', 'Rejected']]
-            if type_processes:
-                on_track_count = len([p for p in type_processes if p['sla_due'] > datetime.now() + timedelta(days=1)])
-                compliance_rate = (on_track_count / len(type_processes)) * 100 if type_processes else 0
-                
-                process_sla_data.append({
-                    'Process Type': ptype,
-                    'Total Active': len(type_processes),
-                    'On Track': on_track_count,
-                    'Compliance Rate': compliance_rate
-                })
-        
-        if process_sla_data:
-            sla_compliance_df = pd.DataFrame(process_sla_data)
-            fig_compliance = px.bar(sla_compliance_df, x='Process Type', y='Compliance Rate',
-                                  title="SLA Compliance Rate by Process Type (%)")
-            fig_compliance.add_hline(y=90, line_dash="dash", line_color="red", annotation_text="Target: 90%")
-            st.plotly_chart(fig_compliance, use_container_width=True)
-        
-        # Recent SLA violations
-        st.subheader("Recent SLA Violations")
-        
-        violations = []
-        for process in st.session_state.processes:
-            if process['status'] not in ['Completed', 'Rejected'] and process['sla_due'] < datetime.now():
-                days_overdue = (datetime.now() - process['sla_due']).days
-                violations.append({
-                    'Process': process['title'],
-                    'Step': process['current_step'],
-                    'Assigned To': st.session_state.users.get(process['assigned_to'], {}).get('name', 'Unknown'),
-                    'Days Overdue': days_overdue,
-                    'Priority': process['priority']
-                })
-        
-        if violations:
-            violations_df = pd.DataFrame(violations)
-            st.dataframe(violations_df, use_container_width=True)
+                st.metric("💰 Est. Service Value", "SAR 0")
+        
+        if critical_tickets > 0:
+            st.error(f"🚨 **{critical_tickets} Critical Issues** - Emergency service automatically notified")
+        elif high_tickets > 0:
+            st.warning(f"⚠️ **{high_tickets} High Priority Issues** - Recommend scheduling service soon")
         else:
-            st.success("🎉 No current SLA violations!")
+            st.success("✅ **All Systems Normal** - Proactive monitoring active")
         
-        # SLA trend analysis
-        st.subheader("SLA Performance Trend")
+        # Service action buttons with ticket context
+        st.markdown("#### 🚀 Service Actions")
+        service_col1, service_col2, service_col3, service_col4 = st.columns(4)
         
-        # Mock trend data for the last 30 days
-        dates = pd.date_range(start=datetime.now()-timedelta(days=30), end=datetime.now(), freq='D')
-        compliance_rates = [85 + (i % 15) for i in range(len(dates))]  # Mock data
+        with service_col1:
+            if st.button("📅 Schedule Maintenance", use_container_width=True):
+                st.success("✅ Maintenance request submitted!")
+                st.info("🔔 Our service team will contact you within 2 hours")
+                if customer_tickets:
+                    st.info(f"📋 {len(customer_tickets)} active tickets will be reviewed")
         
-        fig_trend = px.line(x=dates, y=compliance_rates, 
-                           title="Daily SLA Compliance Rate (Last 30 Days)",
-                           labels={'x': 'Date', 'y': 'Compliance Rate (%)'})
-        fig_trend.add_hline(y=90, line_dash="dash", line_color="red", annotation_text="Target: 90%")
-        fig_trend.add_hline(y=95, line_dash="dash", line_color="green", annotation_text="Excellence: 95%")
-        st.plotly_chart(fig_trend, use_container_width=True)
+        with service_col2:
+            if st.button("🚨 Report Emergency", use_container_width=True, type="primary"):
+                emergency_ticket_id = f"EM-{random.randint(10000, 99999)}"
+                st.success(f"🚨 Emergency ticket {emergency_ticket_id} created!")
+                st.info("☎️ Emergency technician will call within 15 minutes")
+        
+        with service_col3:
+            if st.button("🛒 Request Parts Quote", use_container_width=True):
+                st.success("🛒 Parts specialist notified!")
+                st.info("📧 Quote will be emailed within 4 hours")
+                if customer_tickets:
+                    st.info(f"📋 Parts analysis for {len(customer_tickets)} active tickets")
+        
+        with service_col4:
+            if st.button("📞 Contact Support", use_container_width=True):
+                support_ticket_id = f"SP-{random.randint(10000, 99999)}"
+                st.success(f"📞 Support ticket {support_ticket_id} created!")
+                st.info("🎧 Response within 1 hour")
+        
+        # Ticket Status Management
+        if customer_tickets:
+            st.markdown("#### 📊 Ticket Status Management")
+            
+            # Group tickets by status
+            status_groups = {}
+            for ticket in customer_tickets:
+                status = ticket['status']
+                if status not in status_groups:
+                    status_groups[status] = []
+                status_groups[status].append(ticket)
+            
+            for status, tickets in status_groups.items():
+                with st.expander(f"📋 {status} Tickets ({len(tickets)})", expanded=(status == 'PENDING')):
+                    for ticket in tickets:
+                        col1, col2, col3 = st.columns([2, 2, 1])
+                        
+                        with col1:
+                            st.markdown(f"""
+                            **{ticket['ticket_id']}** - {ticket['type']}  
+                            **Generator:** {ticket['generator']}  
+                            **Issue:** {ticket['service_detail'][:50]}...
+                            """)
+                        
+                        with col2:
+                            st.markdown(f"""
+                            **Priority:** {ticket['priority']}  
+                            **Contact:** {ticket['primary_contact_name']}  
+                            **Revenue:** {ticket['revenue_sar']}
+                            """)
+                        
+                        with col3:
+                            if ticket['priority'] == 'CRITICAL':
+                                if st.button("🚨 Escalate", key=f"escalate_{ticket['ticket_id']}", use_container_width=True):
+                                    st.success(f"🚨 Ticket {ticket['ticket_id']} escalated!")
+                            else:
+                                if st.button("📞 Contact", key=f"contact_{ticket['ticket_id']}", use_container_width=True):
+                                    st.success(f"📞 Contacting for {ticket['ticket_id']}")
+                        
+                        st.markdown("---")
+        
+        st.markdown("#### 📞 24/7 Support Contact Information")
+        
+        support_col1, support_col2, support_col3 = st.columns(3)
+        
+        with support_col1:
+            st.info("""
+            **🚨 Emergency Support**
+            - Phone: +966-800-POWER-1
+            - Available: 24/7
+            - Response: <30 minutes
+            """)
+        
+        with support_col2:
+            st.info("""
+            **🔧 Technical Support**
+            - Phone: +966-11-TECH-SUP
+            - Email: support@powersystem.sa
+            - Hours: 6 AM - 10 PM
+            """)
+        
+        with support_col3:
+            st.info("""
+            **📋 Service Scheduling**
+            - Phone: +966-11-SERVICE
+            - Email: service@powersystem.sa
+            - Hours: 7 AM - 6 PM
+            """)
+        
+    except Exception as e:
+        st.error(f"Error loading customer portal: {str(e)}")
+        st.info("Please try refreshing the page.")
 
-# Footer
-st.markdown("---")
-st.markdown("""
-<div style='text-align: center; color: #666; padding: 20px;'>
-    <p>🔄 BPM System Demo v2.0 | Built with Streamlit | © 2024 Process Excellence Team</p>
-    <p><small>This is a demonstration of a comprehensive Business Process Management system with advanced workflow capabilities.</small></p>
-</div>
-""", unsafe_allow_html=True)
+# ========================================
+# SIMPLIFIED WORK MANAGEMENT (BASIC VERSION)
+# ========================================
+
+def show_work_management_dashboard():
+    """Basic work management dashboard."""
+    st.title("🎫 Work Management Dashboard")
+    st.markdown("### Service Coordination & Customer Management")
+    
+    try:
+        generators_df = load_base_generator_data()
+        status_df = generate_real_time_status(generators_df)
+        
+        if generators_df.empty or status_df.empty:
+            st.error("No data available. Please check system status.")
+            return
+        
+        # Basic metrics
+        col1, col2, col3, col4 = st.columns(4)
+        
+        total_generators = len(generators_df)
+        running_count = len(status_df[status_df['operational_status'] == 'RUNNING'])
+        fault_count = len(status_df[status_df['operational_status'] == 'FAULT'])
+        opportunities = len(status_df[status_df['revenue_opportunity'] == True])
+        
+        with col1:
+            st.metric("Total Generators", total_generators)
+        with col2:
+            st.metric("🟢 Running", running_count)
+        with col3:
+            st.metric("🔴 Faults", fault_count, delta="Critical" if fault_count > 0 else "Normal")
+        with col4:
+            st.metric("💰 Opportunities", opportunities)
+        
+        # Show fault alerts
+        if fault_count > 0:
+            st.subheader("🚨 Active Fault Alerts")
+            fault_generators = status_df[status_df['operational_status'] == 'FAULT']
+            for _, gen in fault_generators.iterrows():
+                st.error(f"""
+                **Generator:** {gen['serial_number']} - {gen['customer_name']}
+                **Issue:** {gen['fault_description']}
+                **Action:** Contact customer for emergency service
+                """)
+        
+        # Service opportunities
+        if opportunities > 0:
+            st.subheader("⚡ Service Opportunities")
+            opportunity_generators = status_df[status_df['revenue_opportunity'] == True]
+            
+            opportunities_list = []
+            for _, gen in opportunity_generators.iterrows():
+                revenue_estimate = CONFIG['revenue_targets']['service_revenue_per_ticket']
+                
+                opportunities_list.append({
+                    'Generator': gen['serial_number'],
+                    'Customer': gen['customer_name'][:30] + "...",
+                    'Issue': gen['fault_description'] if gen['operational_status'] == 'FAULT' else gen['service_type'],
+                    'Priority': 'CRITICAL' if gen['operational_status'] == 'FAULT' else 'HIGH',
+                    'Est. Revenue': format_currency(revenue_estimate / 3.75),
+                    'Contact': gen['customer_contact']
+                })
+            
+            if opportunities_list:
+                opportunities_df = pd.DataFrame(opportunities_list)
+                st.dataframe(opportunities_df, use_container_width=True, hide_index=True)
+        
+        # System status
+        if fault_count == 0 and opportunities == 0:
+            st.success("✅ All systems operating normally. No immediate actions required.")
+        
+    except Exception as e:
+        st.error(f"Error loading dashboard: {str(e)}")
+
+# ========================================
+# MAIN APPLICATION
+# ========================================
+
+def main():
+    """Main application."""
+    
+    if 'authenticated' not in st.session_state:
+        st.session_state.authenticated = False
+    
+    if not st.session_state.authenticated:
+        authenticate_system()
+        return
+    
+    st.sidebar.markdown(f"### {st.session_state.role_name}")
+    st.sidebar.write("Power System Work Management")
+    
+    if st.sidebar.button("🚪 Logout"):
+        st.session_state.authenticated = False
+        st.rerun()
+    
+    st.sidebar.markdown("---")
+    
+    if st.session_state.user_role in ["operations@powersystem", "service@powersystem", "sales@powersystem"]:
+        pages = {
+            "🎫 Work Management": show_work_management_dashboard,
+            "🏢 Customer Portal": show_enhanced_customer_portal
+        }
+    else:
+        pages = {
+            "🏢 My Generators": show_enhanced_customer_portal
+        }
+    
+    selected_page = st.sidebar.selectbox("Navigate:", list(pages.keys()))
+    
+    try:
+        pages[selected_page]()
+    except Exception as e:
+        st.error(f"Error loading page: {str(e)}")
+        st.info("Please try refreshing the page.")
+    
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("### 🎯 System Status")
+    st.sidebar.success("✅ Real-time monitoring active")
+    st.sidebar.info(f"🕒 Last update: {datetime.now().strftime('%H:%M:%S')}")
+    
+    st.sidebar.markdown("### ⚡ Platform Features")
+    
+    if st.session_state.user_role in ["operations@powersystem", "service@powersystem", "sales@powersystem"]:
+        st.sidebar.markdown("✅ Proactive Service Notifications")
+        st.sidebar.markdown("✅ Advanced Ticketing System")
+        st.sidebar.markdown("✅ Real-time Generator Status")
+        st.sidebar.markdown("✅ Customer Portal Access")
+    else:
+        st.sidebar.markdown("**🚨 FAULT ALERT SYSTEM**")
+        st.sidebar.markdown("   • Critical fault notifications")
+        st.sidebar.markdown("   • Warning alerts for sensors")
+        st.sidebar.markdown("   • Automatic emergency dispatch")
+        st.sidebar.markdown("**📊 SENSOR MONITORING**")
+        st.sidebar.markdown("   • Live sensor readings")
+        st.sidebar.markdown("   • Historical trend charts")
+        st.sidebar.markdown("   • Threshold monitoring")
+        st.sidebar.markdown("**⚙️ ALERT CUSTOMIZATION**")
+        st.sidebar.markdown("   • Custom alert thresholds")
+        st.sidebar.markdown("   • Notification preferences")
+        st.sidebar.markdown("**🛠️ SERVICE INTEGRATION**")
+        st.sidebar.markdown("   • Emergency service dispatch")
+        st.sidebar.markdown("   • 24/7 support access")
+
+if __name__ == "__main__":
+    main()
