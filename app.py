@@ -204,7 +204,7 @@ def generate_enhanced_generator_data() -> Dict:
         'Diriyah Gate', 'King Salman Park'
     ]
     
-    # Generate contact data
+    # Generate contact data - ensure exactly 30 entries
     contact_data = []
     for i in range(30):
         contact_data.append({
@@ -217,11 +217,8 @@ def generate_enhanced_generator_data() -> Dict:
         })
     
     return {
-        'serial_number': [f'PS-{2020 + i//4}-{i+1:04d}' for i in range(30)],
-        'model_series': ([
-            'PS-2000 Series', 'PS-1500 Series', 'PS-1000 Series', 'PS-800 Series',
-            'PS-2500 Industrial', 'PS-2000 Commercial', 'PS-1800 Healthcare', 'PS-1200 Retail'
-        ] * 4)[:30],
+        'serial_number': [f'PS-{2020 + i//4}-{(i+1):04d}' for i in range(30)],
+        'model_series': (['PS-2000 Series', 'PS-1500 Series', 'PS-1000 Series', 'PS-800 Series'] * 8)[:30],
         'customer_name': customer_names,
         'primary_contact_name': [contact['primary_contact_name'] for contact in contact_data],
         'primary_contact_phone': [contact['primary_contact_phone'] for contact in contact_data],
@@ -241,12 +238,12 @@ def generate_enhanced_generator_data() -> Dict:
         ] * 8)[:30],
         'next_service_hours': [random.randint(-200, 800) for _ in range(30)],
         'total_runtime_hours': [random.randint(2000, 12000) for _ in range(30)],
-        'location_city': [
+        'location_city': ([
             'Riyadh', 'Riyadh', 'Dammam', 'Riyadh', 'Riyadh', 'Jeddah', 'NEOM', 'Al-Ula',
             'Riyadh', 'Thuwal', 'Riyadh', 'Riyadh', 'Riyadh', 'Riyadh', 'Riyadh', 'Riyadh',
             'Riyadh', 'Riyadh', 'Riyadh', 'Riyadh', 'NEOM', 'NEOM', 'NEOM', 'Qiddiya',
             'Al-Ula', 'Qiddiya', 'Riyadh', 'Riyadh', 'Diriyah', 'Riyadh'
-        ][:30],
+        ] * 2)[:30],
         'installation_date': [
             datetime.now() - timedelta(days=random.randint(365, 1825)) for _ in range(30)
         ]
