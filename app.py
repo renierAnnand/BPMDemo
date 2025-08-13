@@ -337,118 +337,6 @@ def generate_real_time_status(generators_df: pd.DataFrame) -> pd.DataFrame:
     
     return pd.DataFrame(status_data)
 
-def generate_customer_tickets(customer_status, customer_generators):
-    """Generate customer-facing tickets similar to work management system."""
-    tickets = []
-    
-    for _, gen_status in customer_status.iterrows():
-        try:
-            # Get generator info
-            gen_info = customer_generators[customer_generators['serial_number'] == gen_status['serial_number']].iloc[0]
-            
-            # Check if ticket should be generated
-            should_generate_ticket = False
-            ticket_type = ""
-            priority = ""
-            service_detail = ""
-            action_required = ""
-            
-            # Critical fault tickets
-            if gen_status['operational_status'] == 'FAULT':
-                should_generate_ticket = True
-                ticket_type = "🚨 FAULT RESPONSE"
-                priority = "CRITICAL"
-                service_detail = gen_status['fault_description']
-                action_required = "Contact immediately - Emergency service"
-            
-            # Warning tickets for sensors approaching thresholds
-            elif (gen_status['oil_pressure'] < 28 or 
-                  gen_status['coolant_temp'] > 95 or 
-                  gen_status['vibration'] > 4.0 or 
-                  gen_status['fuel_level'] < 30):
-                
-                should_generate_ticket = True
-                ticket_type = "⚠️ PREVENTIVE MAINTENANCE"
-                
-                warning_details = []
-                if gen_status['oil_pressure'] < 28:
-                    warning_details.append(f"Oil Pressure: {gen_status['oil_pressure']} PSI (Below normal)")
-                if gen_status['coolant_temp'] > 95:
-                    warning_details.append(f"Coolant Temp: {gen_status['coolant_temp']}°C (Above normal)")
-                if gen_status['vibration'] > 4.0:
-                    warning_details.append(f"Vibration: {gen_status['vibration']} mm/s (Above normal)")
-                if gen_status['fuel_level'] < 30:
-                    warning_details.append(f"Fuel Level: {gen_status['fuel_level']}% (Low)")
-                
-                service_detail = "; ".join(warning_details)
-                
-                # Determine priority based on severity
-                critical_count = sum([
-                    gen_status['oil_pressure'] < 25,
-                    gen_status['coolant_temp'] > 105,
-                    gen_status['vibration'] > 5.0,
-                    gen_status['fuel_level'] < 20
-                ])
-                
-                if critical_count > 0:
-                    priority = "HIGH"
-                    action_required = "Schedule maintenance within 48 hours"
-                else:
-                    priority = "MEDIUM"
-                    action_required = "Schedule maintenance within 1 week"
-            
-            # Service due tickets
-            elif gen_status.get('needs_proactive_contact', False):
-                should_generate_ticket = True
-                ticket_type = "📅 SCHEDULED MAINTENANCE"
-                priority = "MEDIUM"
-                service_detail = gen_status.get('service_type', 'Regular maintenance due')
-                action_required = "Schedule routine maintenance"
-            
-            if should_generate_ticket:
-                # Generate ticket ID based on type and generator
-                if priority == "CRITICAL":
-                    ticket_prefix = "CF"  # Critical Fault
-                elif priority == "HIGH":
-                    ticket_prefix = "HW"  # High Warning
-                else:
-                    ticket_prefix = "PM"  # Preventive Maintenance
-                
-                ticket_id = f"{ticket_prefix}-{random.randint(10000, 99999)}"
-                
-                # Calculate estimated revenue
-                if priority == "CRITICAL":
-                    estimated_revenue_usd = CONFIG['revenue_targets']['service_revenue_per_ticket'] / 3.75 * 1.5
-                else:
-                    estimated_revenue_usd = CONFIG['revenue_targets']['service_revenue_per_ticket'] / 3.75
-                
-                tickets.append({
-                    'ticket_id': ticket_id,
-                    'type': ticket_type,
-                    'generator': gen_status['serial_number'],
-                    'customer': gen_info['customer_name'],
-                    'primary_contact_name': gen_info.get('primary_contact_name', 'N/A'),
-                    'primary_contact_phone': gen_info.get('primary_contact_phone', 'N/A'),
-                    'primary_contact_email': gen_info.get('primary_contact_email', 'N/A'),
-                    'alt_contact_name': gen_info.get('alt_contact_name', 'N/A'),
-                    'alt_contact_phone': gen_info.get('alt_contact_phone', 'N/A'),
-                    'alt_contact_email': gen_info.get('alt_contact_email', 'N/A'),
-                    'service_detail': service_detail,
-                    'runtime_hours': gen_status.get('runtime_hours', 5000),
-                    'priority': priority,
-                    'revenue_sar': format_currency(estimated_revenue_usd),
-                    'action_required': action_required,
-                    'status': 'PENDING',
-                    'created_time': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                    'model_series': gen_info['model_series'],
-                    'location': gen_info['location_city']
-                })
-                
-        except Exception:
-            continue
-    
-    return tickets
-
 # ========================================
 # AUTHENTICATION
 # ========================================
@@ -756,111 +644,40 @@ def show_enhanced_customer_portal():
                 if st.button("💾 Save Alert Settings", use_container_width=True, type="primary"):
                     st.success("✅ Alert preferences saved successfully!")
         
-        # Enhanced Service & Support with Ticket Integration
+        # Enhanced Service & Support
         st.subheader("🛠️ Service & Support Center")
         
-        # Service statistics based on tickets
-        critical_tickets = len([t for t in customer_tickets if t['priority'] == 'CRITICAL'])
-        high_tickets = len([t for t in customer_tickets if t['priority'] == 'HIGH'])
-        total_tickets = len(customer_tickets)
+        fault_count_service = len(customer_status[customer_status['operational_status'] == 'FAULT'])
+        warning_count_service = len(warning_alerts_filtered) if 'warning_alerts_filtered' in locals() else 0
         
-        col1, col2, col3, col4 = st.columns(4)
-        
-        with col1:
-            st.metric("🚨 Critical Tickets", critical_tickets, 
-                     delta="Immediate Action" if critical_tickets > 0 else "Normal")
-        
-        with col2:
-            st.metric("⚠️ High Priority", high_tickets,
-                     delta="Schedule Soon" if high_tickets > 0 else "Normal")
-        
-        with col3:
-            st.metric("📋 Total Active", total_tickets)
-        
-        with col4:
-            if customer_tickets:
-                total_revenue = sum([float(t['revenue_sar'].replace('SAR ', '').replace(',', '')) for t in customer_tickets])
-                st.metric("💰 Est. Service Value", f"SAR {total_revenue:,.0f}")
-            else:
-                st.metric("💰 Est. Service Value", "SAR 0")
-        
-        if critical_tickets > 0:
-            st.error(f"🚨 **{critical_tickets} Critical Issues** - Emergency service automatically notified")
-        elif high_tickets > 0:
-            st.warning(f"⚠️ **{high_tickets} High Priority Issues** - Recommend scheduling service soon")
+        if fault_count_service > 0:
+            st.error(f"🚨 **{fault_count_service} Critical Issues** - Emergency service automatically notified")
+        elif warning_count_service > 0:
+            st.warning(f"⚠️ **{warning_count_service} Warnings** - Recommend scheduling preventive maintenance")
         else:
             st.success("✅ **All Systems Normal** - Proactive monitoring active")
         
-        # Service action buttons with ticket context
-        st.markdown("#### 🚀 Service Actions")
         service_col1, service_col2, service_col3, service_col4 = st.columns(4)
         
         with service_col1:
             if st.button("📅 Schedule Maintenance", use_container_width=True):
                 st.success("✅ Maintenance request submitted!")
                 st.info("🔔 Our service team will contact you within 2 hours")
-                if customer_tickets:
-                    st.info(f"📋 {len(customer_tickets)} active tickets will be reviewed")
         
         with service_col2:
             if st.button("🚨 Report Emergency", use_container_width=True, type="primary"):
-                emergency_ticket_id = f"EM-{random.randint(10000, 99999)}"
-                st.success(f"🚨 Emergency ticket {emergency_ticket_id} created!")
+                st.success("🚨 Emergency ticket created!")
                 st.info("☎️ Emergency technician will call within 15 minutes")
         
         with service_col3:
             if st.button("🛒 Request Parts Quote", use_container_width=True):
                 st.success("🛒 Parts specialist notified!")
                 st.info("📧 Quote will be emailed within 4 hours")
-                if customer_tickets:
-                    st.info(f"📋 Parts analysis for {len(customer_tickets)} active tickets")
         
         with service_col4:
             if st.button("📞 Contact Support", use_container_width=True):
-                support_ticket_id = f"SP-{random.randint(10000, 99999)}"
-                st.success(f"📞 Support ticket {support_ticket_id} created!")
+                st.success("📞 Support ticket created!")
                 st.info("🎧 Response within 1 hour")
-        
-        # Ticket Status Management
-        if customer_tickets:
-            st.markdown("#### 📊 Ticket Status Management")
-            
-            # Group tickets by status
-            status_groups = {}
-            for ticket in customer_tickets:
-                status = ticket['status']
-                if status not in status_groups:
-                    status_groups[status] = []
-                status_groups[status].append(ticket)
-            
-            for status, tickets in status_groups.items():
-                with st.expander(f"📋 {status} Tickets ({len(tickets)})", expanded=(status == 'PENDING')):
-                    for ticket in tickets:
-                        col1, col2, col3 = st.columns([2, 2, 1])
-                        
-                        with col1:
-                            st.markdown(f"""
-                            **{ticket['ticket_id']}** - {ticket['type']}  
-                            **Generator:** {ticket['generator']}  
-                            **Issue:** {ticket['service_detail'][:50]}...
-                            """)
-                        
-                        with col2:
-                            st.markdown(f"""
-                            **Priority:** {ticket['priority']}  
-                            **Contact:** {ticket['primary_contact_name']}  
-                            **Revenue:** {ticket['revenue_sar']}
-                            """)
-                        
-                        with col3:
-                            if ticket['priority'] == 'CRITICAL':
-                                if st.button("🚨 Escalate", key=f"escalate_{ticket['ticket_id']}", use_container_width=True):
-                                    st.success(f"🚨 Ticket {ticket['ticket_id']} escalated!")
-                            else:
-                                if st.button("📞 Contact", key=f"contact_{ticket['ticket_id']}", use_container_width=True):
-                                    st.success(f"📞 Contacting for {ticket['ticket_id']}")
-                        
-                        st.markdown("---")
         
         st.markdown("#### 📞 24/7 Support Contact Information")
         
