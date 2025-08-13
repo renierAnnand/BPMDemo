@@ -760,9 +760,16 @@ def show_enhanced_customer_portal():
         st.subheader("🛠️ Service & Support Center")
         
         # Service statistics based on tickets
-        critical_tickets = len([t for t in customer_tickets if t['priority'] == 'CRITICAL'])
-        high_tickets = len([t for t in customer_tickets if t['priority'] == 'HIGH'])
-        total_tickets = len(customer_tickets)
+        if 'immediate_tickets' in locals() and immediate_tickets:
+            critical_tickets = len([t for t in immediate_tickets if t['Priority'] == 'CRITICAL'])
+            high_tickets = len([t for t in immediate_tickets if t['Priority'] == 'HIGH'])
+            total_tickets = len(immediate_tickets)
+            total_revenue = sum([float(t['Est. Revenue'].replace('SAR ', '').replace(',', '')) for t in immediate_tickets])
+        else:
+            critical_tickets = 0
+            high_tickets = 0
+            total_tickets = 0
+            total_revenue = 0
         
         col1, col2, col3, col4 = st.columns(4)
         
@@ -778,11 +785,7 @@ def show_enhanced_customer_portal():
             st.metric("📋 Total Active", total_tickets)
         
         with col4:
-            if customer_tickets:
-                total_revenue = sum([float(t['revenue_sar'].replace('SAR ', '').replace(',', '')) for t in customer_tickets])
-                st.metric("💰 Est. Service Value", f"SAR {total_revenue:,.0f}")
-            else:
-                st.metric("💰 Est. Service Value", "SAR 0")
+            st.metric("💰 Est. Service Value", f"SAR {total_revenue:,.0f}")
         
         if critical_tickets > 0:
             st.error(f"🚨 **{critical_tickets} Critical Issues** - Emergency service automatically notified")
@@ -799,8 +802,8 @@ def show_enhanced_customer_portal():
             if st.button("📅 Schedule Maintenance", use_container_width=True):
                 st.success("✅ Maintenance request submitted!")
                 st.info("🔔 Our service team will contact you within 2 hours")
-                if customer_tickets:
-                    st.info(f"📋 {len(customer_tickets)} active tickets will be reviewed")
+                if total_tickets > 0:
+                    st.info(f"📋 {total_tickets} active tickets will be reviewed")
         
         with service_col2:
             if st.button("🚨 Report Emergency", use_container_width=True, type="primary"):
@@ -812,55 +815,14 @@ def show_enhanced_customer_portal():
             if st.button("🛒 Request Parts Quote", use_container_width=True):
                 st.success("🛒 Parts specialist notified!")
                 st.info("📧 Quote will be emailed within 4 hours")
-                if customer_tickets:
-                    st.info(f"📋 Parts analysis for {len(customer_tickets)} active tickets")
+                if total_tickets > 0:
+                    st.info(f"📋 Parts analysis for {total_tickets} active tickets")
         
         with service_col4:
             if st.button("📞 Contact Support", use_container_width=True):
                 support_ticket_id = f"SP-{random.randint(10000, 99999)}"
                 st.success(f"📞 Support ticket {support_ticket_id} created!")
                 st.info("🎧 Response within 1 hour")
-        
-        # Ticket Status Management
-        if customer_tickets:
-            st.markdown("#### 📊 Ticket Status Management")
-            
-            # Group tickets by status
-            status_groups = {}
-            for ticket in customer_tickets:
-                status = ticket['status']
-                if status not in status_groups:
-                    status_groups[status] = []
-                status_groups[status].append(ticket)
-            
-            for status, tickets in status_groups.items():
-                with st.expander(f"📋 {status} Tickets ({len(tickets)})", expanded=(status == 'PENDING')):
-                    for ticket in tickets:
-                        col1, col2, col3 = st.columns([2, 2, 1])
-                        
-                        with col1:
-                            st.markdown(f"""
-                            **{ticket['ticket_id']}** - {ticket['type']}  
-                            **Generator:** {ticket['generator']}  
-                            **Issue:** {ticket['service_detail'][:50]}...
-                            """)
-                        
-                        with col2:
-                            st.markdown(f"""
-                            **Priority:** {ticket['priority']}  
-                            **Contact:** {ticket['primary_contact_name']}  
-                            **Revenue:** {ticket['revenue_sar']}
-                            """)
-                        
-                        with col3:
-                            if ticket['priority'] == 'CRITICAL':
-                                if st.button("🚨 Escalate", key=f"escalate_{ticket['ticket_id']}", use_container_width=True):
-                                    st.success(f"🚨 Ticket {ticket['ticket_id']} escalated!")
-                            else:
-                                if st.button("📞 Contact", key=f"contact_{ticket['ticket_id']}", use_container_width=True):
-                                    st.success(f"📞 Contacting for {ticket['ticket_id']}")
-                        
-                        st.markdown("---")
         
         st.markdown("#### 📞 24/7 Support Contact Information")
         
