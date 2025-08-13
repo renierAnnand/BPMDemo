@@ -236,9 +236,9 @@ def generate_enhanced_generator_data() -> Dict:
             650, 500, 350, 300, 2800, 2200, 1600, 1100,
             850, 700, 450, 380, 320, 280
         ],
-        'service_contract': [
+        'service_contract': ([
             'Premium Care', 'Basic Maintenance', 'Preventive Plus', 'No Contract'
-        ] * 8,
+        ] * 8)[:30],
         'next_service_hours': [random.randint(-200, 800) for _ in range(30)],
         'total_runtime_hours': [random.randint(2000, 12000) for _ in range(30)],
         'location_city': [
